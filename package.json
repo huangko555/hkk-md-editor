@@ -1,0 +1,221 @@
+{
+	"name": "hkk-md-editor",
+	"displayName": "HKK MD Editor",
+	"description": "HKK 的所见即所得 Markdown 编辑器(基于 Office Viewer 的 markdown 模块)。",
+	"version": "0.0.1",
+	"publisher": "hkq",
+	"engines": {
+		"vscode": "^1.64.0"
+	},
+	"keywords": [
+		"markdown",
+		"wysiwyg",
+		"editor"
+	],
+	"categories": [
+		"Visualization",
+		"Other"
+	],
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "hkk-md-editor.switch",
+				"title": "HKK MD: 切换编辑器"
+			},
+			{
+				"command": "hkk-md-editor.paste",
+				"title": "HKK MD: 增强粘贴"
+			}
+		],
+		"keybindings": [
+			{
+				"command": "hkk-md-editor.paste",
+				"key": "ctrl+v",
+				"mac": "cmd+v",
+				"when": "editorTextFocus && resourceLangId == markdown"
+			},
+			{
+				"command": "hkk-md-editor.switch",
+				"key": "ctrl+alt+e",
+				"mac": "ctrl+cmd+e",
+				"when": "editorTextFocus && editorLangId == markdown"
+			}
+		],
+		"menus": {
+			"editor/title": [
+				{
+					"command": "hkk-md-editor.switch",
+					"when": "resourceExtname == '.md'",
+					"group": "navigation@-2"
+				}
+			]
+		},
+		"customEditors": [
+			{
+				"viewType": "hkk-md-editor.editor",
+				"displayName": "HKK MD Editor",
+				"selector": [
+					{
+						"filenamePattern": "file:/**/*.md"
+					},
+					{
+						"filenamePattern": "file:/**/*.markdown"
+					}
+				]
+			},
+			{
+				"viewType": "hkk-md-editor.editor.optional",
+				"displayName": "HKK MD Editor (Optional)",
+				"priority": "option",
+				"selector": [
+					{
+						"filenamePattern": "*.md"
+					},
+					{
+						"filenamePattern": "*.markdown"
+					}
+				]
+			}
+		],
+		"configuration": [
+			{
+				"title": "HKK MD Editor",
+				"order": 1,
+				"properties": {
+					"hkk-md-editor.viewAbsoluteLocal": {
+						"type": "boolean",
+						"default": false,
+						"description": "支持在 markdown 编辑器中查看绝对路径图片。"
+					},
+					"hkk-md-editor.openOutline": {
+						"type": "boolean",
+						"default": true,
+						"description": "默认打开 markdown 大纲。"
+					},
+					"hkk-md-editor.hideToolbar": {
+						"type": "boolean",
+						"default": false,
+						"description": "隐藏 markdown 工具栏。"
+					},
+					"hkk-md-editor.previewCode": {
+						"type": "boolean",
+						"default": true,
+						"description": "在 markdown 中预览代码块。"
+					},
+					"hkk-md-editor.preventMacOptionKey": {
+						"type": "boolean",
+						"default": true,
+						"description": "在 macOS 编辑器中拦截 option 键。"
+					},
+					"hkk-md-editor.editorTheme": {
+						"type": "string",
+						"enum": [
+							"Auto",
+							"Light",
+							"Solarized",
+							"Warm Light",
+							"Dim Light",
+							"One Dark",
+							"Github Dark",
+							"Nord",
+							"Monokai",
+							"Dracula"
+						],
+						"default": "Auto",
+						"markdownDescription": "Markdown 编辑器主题。"
+					},
+					"hkk-md-editor.previewCodeHighlight.style": {
+						"type": "string",
+						"default": "dracula",
+						"markdownDescription": "Markdown 预览代码默认高亮样式。"
+					},
+					"hkk-md-editor.previewCodeHighlight.showLineNumber": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "在 markdown 预览代码窗口中显示行号。"
+					},
+					"hkk-md-editor.editorLanguage": {
+						"type": "string",
+						"enum": [
+							"en_US",
+							"ja_JP",
+							"ko_KR",
+							"ru_RU",
+							"zh_CN",
+							"zh_TW"
+						],
+						"default": "zh_CN",
+						"description": "编辑器语言。"
+					},
+					"hkk-md-editor.workspacePathAsImageBasePath": {
+						"type": "boolean",
+						"default": false,
+						"description": "使用工作区路径作为 markdown 图片基准路径。"
+					},
+					"hkk-md-editor.pasterImgPath": {
+						"type": "string",
+						"default": "image/${fileName}/${now}.png",
+						"description": "Markdown 粘贴图片路径,变量:workspaceDir、fileName、now。"
+					}
+				}
+			},
+			{
+				"title": "HKK MD Editor — PDF 导出",
+				"order": 2,
+				"properties": {
+					"hkk-md-editor.chromiumPath": {
+						"type": "string",
+						"description": "导出 markdown PDF 使用的 chromium 浏览器路径。"
+					},
+					"hkk-md-editor.puppeteerArgs": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"default": [],
+						"description": "导出 PDF 时传给 Puppeteer/Chromium 的额外参数。"
+					},
+					"hkk-md-editor.pdfMarginTop": {
+						"type": "integer",
+						"default": 25,
+						"description": "打印 PDF 默认上边距。"
+					}
+				}
+			}
+		]
+	},
+	"scripts": {
+		"build": "rimraf out && node build.js --mode=production",
+		"dev": "node build.js",
+		"package": "vsce package --no-dependencies",
+		"vscode:prepublish": "npm run build"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.0",
+		"@types/vscode": "^1.64.0",
+		"esbuild": "^0.14.54",
+		"esbuild-plugin-copy": "^1.3.0",
+		"rimraf": "^5.0.5"
+	},
+	"dependencies": {
+		"cheerio": "^1.0.0",
+		"chrome-finder": "^1.0.7",
+		"file-type": "^19.6.0",
+		"highlight.js": "^11.10.0",
+		"katex": "^0.16.2",
+		"markdown-it": "^14.1.0",
+		"markdown-it-anchor": "^9.2.0",
+		"markdown-it-checkbox": "^1.1.0",
+		"markdown-it-plantuml": "^1.4.1",
+		"markdown-it-toc-done-right": "^4.2.0",
+		"mermaid": "^11.15.0",
+		"mustache": "^4.0.1",
+		"pdf-lib": "^1.11.2",
+		"puppeteer-core": "^25.1.0",
+		"vscode-html-to-docx": "^1.1.2"
+	}
+}

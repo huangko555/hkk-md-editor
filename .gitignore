@@ -1,0 +1,13 @@
+# 依赖与产物
+node_modules/
+out/
+*.vsix
+
+# 编辑器/测试
+.vscode-test/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 注意:package-lock.json 故意不忽略,跨机开发需要它来锁版本

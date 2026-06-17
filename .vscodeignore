@@ -1,0 +1,14 @@
+.vscode/**
+.vscode-test/**
+src/**
+.gitignore
+**/tsconfig.json
+**/.eslintrc*
+**/*.map
+**/*.ts
+build.js
+yarn.lock
+package-lock.json
+.cursorrules
+README-CN.md
+README-TW.md
