@@ -159,6 +159,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         }).on("theme", async (theme) => {
             if (!theme) {
                 const themes = [
+                    "HKK", "|",
                     "Auto", "|",
                     "Light", "Solarized", "Warm Light", "Dim Light", "|",
                     "One Dark", "Github Dark",

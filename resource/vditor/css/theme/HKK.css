@@ -1,0 +1,59 @@
+/* HKK 主题:浅蓝主色 + VS Code 背景联动 */
+:root {
+    --hr-bg: #ffffff;
+    --ext-border-color: rgba(127, 127, 127, 0.35);
+    --bg-color: var(--vscode-editor-background, #1e1e1e);
+    --front-color: var(--vscode-editor-foreground, #d4d4d4);
+    --second-bg-color: var(--vscode-editorWidget-background, #252526);
+    --code-bg-color: rgba(66, 133, 244, 0.18);
+    --list-hover-color: #79b8ff;
+    --dropdown-hover-background: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.07));
+    --error-color: #ff5555;
+}
+
+/* 标题统一浅蓝 */
+#vditor[data-editor-theme="HKK"] .vditor-reset h1,
+#vditor[data-editor-theme="HKK"] .vditor-reset h2,
+#vditor[data-editor-theme="HKK"] .vditor-reset h3,
+#vditor[data-editor-theme="HKK"] .vditor-reset h4,
+#vditor[data-editor-theme="HKK"] .vditor-reset h5,
+#vditor[data-editor-theme="HKK"] .vditor-reset h6 {
+    color: #79b8ff !important;
+}
+
+/* 引用块左边线:细蓝 2px */
+#vditor[data-editor-theme="HKK"] .vditor-reset blockquote {
+    border-left-width: 2px !important;
+    border-left-color: rgba(66, 133, 244, 0.6) !important;
+}
+
+/* 行内代码:强制覆盖 base.css 的 --code-bg-color 变量,确保和代码块、表格一致 */
+#vditor[data-editor-theme="HKK"] .vditor-reset code:not(.hljs):not(.highlight-chroma),
+#vditor[data-editor-theme="HKK"] .vditor-content code:not(.hljs):not(.highlight-chroma) {
+    background-color: rgba(66, 133, 244, 0.18) !important;
+}
+
+/* 代码块(fenced)静默渲染态浅蓝 0.10,inner code 透明避免叠层
+   编辑展开后的 .vditor-wysiwyg__pre 蓝色由 vditor 内置 style 决定,暂时压不下来,接受现状 */
+#vditor[data-editor-theme="HKK"] .vditor-reset pre,
+#vditor[data-editor-theme="HKK"] .vditor-reset pre.hljs,
+#vditor[data-editor-theme="HKK"] .vditor-wysiwyg__preview {
+    background-color: rgba(66, 133, 244, 0.10) !important;
+}
+#vditor[data-editor-theme="HKK"] .vditor-reset pre code,
+#vditor[data-editor-theme="HKK"] .vditor-reset pre code.hljs,
+#vditor[data-editor-theme="HKK"] .vditor-wysiwyg__preview code {
+    background-color: transparent !important;
+}
+
+/* 表格隔行:大面积色,同样降到 0.10 */
+#vditor[data-editor-theme="HKK"] .vditor-reset table tr {
+    background-color: transparent !important;
+}
+#vditor[data-editor-theme="HKK"] .vditor-reset table thead tr th,
+#vditor[data-editor-theme="HKK"] .vditor-reset table tbody tr:nth-child(2n) td {
+    background-color: rgba(66, 133, 244, 0.10) !important;
+}
+#vditor[data-editor-theme="HKK"] .vditor-reset table tbody tr:nth-child(2n+1) td {
+    background-color: transparent !important;
+}

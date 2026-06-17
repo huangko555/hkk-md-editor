@@ -1,0 +1,31 @@
+/* ============================================================
+ * HKK MD Editor 通用布局调整 (与主题无关,所有主题都生效)
+ * 颜色相关的样式见 css/theme/HKK.css
+ * ============================================================ */
+
+/* ---------- 表格:窗口内显示 + 自动换行 + 不出横向滚动条 ---------- */
+.vditor-reset table {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: auto !important;
+    overflow: visible !important;
+    display: table !important;
+}
+.vditor-reset table td,
+.vditor-reset table th {
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    white-space: normal !important;
+}
+/* 空单元格用 ZWSP 占位,撑出跟正常行一样的高度 */
+.vditor-reset table td::before,
+.vditor-reset table th::before {
+    content: '\200B';
+}
+
+/* ---------- 分割线减细 (颜色由主题 --hr-bg 决定) ---------- */
+.vditor-reset hr,
+.vditor-content hr {
+    height: 1px !important;
+    border: none !important;
+}

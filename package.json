@@ -114,6 +114,7 @@
 					"hkk-md-editor.editorTheme": {
 						"type": "string",
 						"enum": [
+							"HKK",
 							"Auto",
 							"Light",
 							"Solarized",
@@ -125,8 +126,8 @@
 							"Monokai",
 							"Dracula"
 						],
-						"default": "Auto",
-						"markdownDescription": "Markdown 编辑器主题。"
+						"default": "HKK",
+						"markdownDescription": "Markdown 编辑器主题(默认 HKK 主题)。"
 					},
 					"hkk-md-editor.previewCodeHighlight.style": {
 						"type": "string",
