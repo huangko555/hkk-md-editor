@@ -68,6 +68,33 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
         let lastManualSaveTime: number;
         const config = vscode.workspace.getConfiguration("hkk-md-editor");
+
+        // ── Phase 1: 外部改动同步 + dirty 安全锁 ──────────────────────
+        // lastSyncedText 是"我们已知的真相",用来去重(避免把自己刚写盘的内容当外部改动)
+        const normalize = (s: string) => (s ?? '').replace(/\r\n/g, '\n');
+        let lastSyncedText = normalize(content);
+        let conflictNotified = false;
+
+        const handleExternalText = (newText: string) => {
+            const normalized = normalize(newText);
+            if (normalized === lastSyncedText) return; // 自身回写,跳过
+            if (document.isDirty) {
+                // 有未保存草稿 → 不覆盖,只弹一次警告;保存时由 VS Code 原生对话框做最终裁决
+                if (!conflictNotified) {
+                    conflictNotified = true;
+                    vscode.window.showWarningMessage('文件冲突！文件已在别的地方被修改，请注意处理。');
+                }
+                return;
+            }
+            // 干净状态:静默更新 webview 内容
+            conflictNotified = false;
+            content = newText;
+            lastSyncedText = normalized;
+            this.updateCount(content);
+            handler.emit('update', newText);
+        };
+        // ─────────────────────────────────────────────────────────────
+
         handler.on("init", () => {
             const scrollTop = this.state.get(`scrollTop_${document.uri.fsPath}`, 0);
             handler.emit("open", {
@@ -79,12 +106,16 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             this.updateCount(content)
             this.countStatus.show()
         }).on("externalUpdate", e => {
+            // VS Code 内文档变化:含我们自己 applyEdit 引起的,以及干净时 VS Code 自动重载外部改动
             if (lastManualSaveTime && Date.now() - lastManualSaveTime < 800) return;
-            const updatedText = e.document.getText()?.replace(/\r/g, '');
-            if (content == updatedText) return;
-            content = updatedText;
-            this.updateCount(content)
-            handler.emit("update", updatedText)
+            handleExternalText(e.document.getText());
+        }).on("fileChange", async () => {
+            // 磁盘文件变化:即使 VS Code 没自动重载(dirty 时会拒绝),这里也会收到
+            if (lastManualSaveTime && Date.now() - lastManualSaveTime < 800) return;
+            try {
+                const bytes = await vscode.workspace.fs.readFile(uri);
+                handleExternalText(Buffer.from(bytes).toString('utf8'));
+            } catch { /* 文件被删 / 暂不可读 */ }
         }).on("command", (command) => {
             vscode.commands.executeCommand(command)
         }).on("openLink", (uri: string) => {
@@ -113,12 +144,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         }).on("save", (newContent) => {
             if (lastManualSaveTime && Date.now() - lastManualSaveTime < 800) return;
             content = newContent
+            lastSyncedText = normalize(newContent);  // 记下"我们刚写的内容",避免随后的事件被当外部改动
             this.updateTextDocument(document, newContent)
             this.updateCount(content)
-        }).on("doSave", async (content) => {
+        }).on("doSave", async (newContent) => {
             lastManualSaveTime = Date.now();
-            await this.updateTextDocument(document, content)
-            this.updateCount(content)
+            lastSyncedText = normalize(newContent);
+            await this.updateTextDocument(document, newContent)
+            this.updateCount(newContent)
             vscode.commands.executeCommand('workbench.action.files.save');
         }).on("export", (option) => {
             vscode.commands.executeCommand('workbench.action.files.save');
@@ -147,6 +180,34 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         }).on('developerTool', () => {
             vscode.commands.executeCommand('workbench.action.toggleDevTools')
         })
+
+        // ── 1 秒轮询兜底(zhfix / Obsidian 等"临时文件+原子改名"会绕开 FileSystemWatcher)──
+        let pollTimer: NodeJS.Timeout | undefined;
+        let lastStatMtime = -1;
+        let lastStatSize = -1;
+        const pollDisk = async () => {
+            if (lastManualSaveTime && Date.now() - lastManualSaveTime < 800) return;
+            let st: vscode.FileStat;
+            try {
+                st = await vscode.workspace.fs.stat(uri);
+            } catch { return; }
+            if (st.mtime === lastStatMtime && st.size === lastStatSize) return;
+            lastStatMtime = st.mtime;
+            lastStatSize = st.size;
+            try {
+                const bytes = await vscode.workspace.fs.readFile(uri);
+                handleExternalText(Buffer.from(bytes).toString('utf8'));
+            } catch { /* 文件被删 / 暂不可读 */ }
+        };
+        const startPoll = () => { if (!pollTimer) pollTimer = setInterval(pollDisk, 1000); };
+        const stopPoll = () => { if (pollTimer) { clearInterval(pollTimer); pollTimer = undefined; } };
+        handler.panel.onDidChangeViewState(() => {
+            if (handler.panel.visible) { pollDisk(); startPoll(); }
+            else stopPoll();
+        });
+        startPoll();
+        handler.panel.onDidDispose(() => stopPoll());
+        // ─────────────────────────────────────────────────────────────────────────────────
 
         const basePath = Global.getConfig('workspacePathAsImageBasePath') ?
             vscode.Uri.file(getWorkspacePath(folderPath)) : folderPath;

@@ -10,4 +10,7 @@ out/
 .DS_Store
 Thumbs.db
 
+# 本地测试样本(不参与版本控制)
+test-samples/
+
 # 注意:package-lock.json 故意不忽略,跨机开发需要它来锁版本
