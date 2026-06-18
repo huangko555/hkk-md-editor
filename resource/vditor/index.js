@@ -227,6 +227,16 @@ handler.on("open", async (md) => {
           if (node.parentElement && node.parentElement.scrollIntoView) {
             node.parentElement.scrollIntoView({ block: 'center', behavior: 'instant' });
           }
+          // 光标所在的 .vditor-ir__node 强制加 --expand,显示 markdown 源符号 (## ** 等)
+          // 因为 vditor 不会因为我们手动设光标就自动展开
+          const startEl = node.nodeType === 1 ? node : node.parentElement;
+          const irNode = startEl?.closest('.vditor-ir__node');
+          if (irNode) {
+            document.querySelectorAll('.vditor-ir__node--expand').forEach(n => {
+              if (n !== irNode) n.classList.remove('vditor-ir__node--expand');
+            });
+            irNode.classList.add('vditor-ir__node--expand');
+          }
         } catch { }
       }
 
