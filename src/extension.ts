@@ -4,7 +4,8 @@ import { MarkdownService } from './service/markdownService';
 import { FileUtil } from './common/fileUtil';
 
 export function activate(context: vscode.ExtensionContext) {
-	const viewOption = { webviewOptions: { retainContextWhenHidden: true, enableFindWidget: true } };
+	// enableFindWidget 关掉,我们自己做搜索 — 这样可以预填选中文字、只搜文档不搜 TOC
+	const viewOption = { webviewOptions: { retainContextWhenHidden: true, enableFindWidget: false } };
 	FileUtil.init(context)
 	const markdownService = new MarkdownService(context);
 	const markdownEditorProvider = new MarkdownEditorProvider(context)

@@ -71,6 +71,125 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
+/* ============================================================
+ * 滚动条:更显眼 + 鼠标指针正常箭头 (修 contenteditable I-beam 漏进滚动条)
+ * 覆盖编辑器主滚动条 .vditor-reset、TOC 树滚动条 .hkk-toc__body
+ * ============================================================ */
+.vditor-reset::-webkit-scrollbar,
+.hkk-toc__body::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+.vditor-reset::-webkit-scrollbar-track,
+.hkk-toc__body::-webkit-scrollbar-track {
+    background: transparent;
+}
+.vditor-reset::-webkit-scrollbar-thumb,
+.hkk-toc__body::-webkit-scrollbar-thumb {
+    background: rgba(180, 180, 180, 0.55);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    border-radius: 6px;
+    min-height: 30px;
+}
+.vditor-reset::-webkit-scrollbar-thumb:hover,
+.hkk-toc__body::-webkit-scrollbar-thumb:hover {
+    background: rgba(180, 180, 180, 0.75);
+    background-clip: padding-box;
+}
+.vditor-reset::-webkit-scrollbar-thumb:active,
+.hkk-toc__body::-webkit-scrollbar-thumb:active {
+    background: rgba(180, 180, 180, 0.9);
+    background-clip: padding-box;
+}
+.vditor-reset::-webkit-scrollbar-corner,
+.hkk-toc__body::-webkit-scrollbar-corner {
+    background: transparent;
+}
+/* 滚动条区域用普通箭头光标,不要继承 contenteditable 的 I-beam */
+.vditor-reset::-webkit-scrollbar,
+.vditor-reset::-webkit-scrollbar-track,
+.vditor-reset::-webkit-scrollbar-thumb,
+.vditor-reset::-webkit-scrollbar-button,
+.vditor-reset::-webkit-scrollbar-corner {
+    cursor: default !important;
+}
+
+/* ============================================================
+ * Phase 4.2 自定义搜索条 (Ctrl+F 触发,只搜文档不搜 TOC)
+ * 风格模仿 VS Code find widget
+ * ============================================================ */
+.hkk-search {
+    position: fixed;
+    top: calc(var(--hkk-toolbar-h, 36px) + 4px);
+    right: 16px;
+    z-index: 1500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+    background: var(--vscode-editorWidget-background, #252526);
+    color: var(--vscode-editorWidget-foreground, #cccccc);
+    border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, rgba(255, 255, 255, 0.15)));
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.36);
+    font-size: 12px;
+}
+.hkk-search--hidden { display: none !important; }
+
+.hkk-search__input {
+    width: 200px;
+    padding: 3px 8px;
+    background: var(--vscode-input-background, #3c3c3c);
+    color: var(--vscode-input-foreground, #cccccc);
+    border: 1px solid transparent;
+    border-radius: 2px;
+    outline: none;
+    font: inherit;
+}
+.hkk-search__input:focus {
+    border-color: var(--vscode-focusBorder, #007fd4);
+}
+.hkk-search__count {
+    min-width: 50px;
+    text-align: center;
+    color: var(--vscode-descriptionForeground, rgba(255, 255, 255, 0.6));
+    font-size: 11px;
+    padding: 0 4px;
+    user-select: none;
+}
+.hkk-search__count[data-empty="1"] {
+    color: var(--vscode-errorForeground, #f48771);
+}
+.hkk-search__btn {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: inherit;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    opacity: 0.85;
+}
+.hkk-search__btn:hover {
+    opacity: 1;
+    background: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.1));
+}
+.hkk-search__btn svg {
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+}
+.hkk-search__close:hover {
+    background: var(--vscode-statusBarItem-errorBackground, rgba(220, 53, 69, 0.4));
+    color: var(--vscode-statusBarItem-errorForeground, #fff);
+}
+
 /* ---------- IR 模式链接 - 已展开时:文本光标 (I-beam),进入编辑态 ---------- */
 #vditor .vditor-ir .vditor-ir__node--expand .vditor-ir__link,
 #vditor .vditor-ir .vditor-ir__node--expand a[href],
