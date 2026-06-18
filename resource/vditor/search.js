@@ -35,7 +35,12 @@ export function initSearch() {
   bar.id = 'hkk-search';
   bar.className = 'hkk-search hkk-search--hidden';
   bar.innerHTML = `
-    <input type="text" class="hkk-search__input" placeholder="查找" spellcheck="false" />
+    <div class="hkk-search__input-wrap">
+      <input type="text" class="hkk-search__input" placeholder="查找" spellcheck="false" />
+      <button type="button" class="hkk-search__clear" data-action="clear-input" title="清空">
+        <svg viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" d="M4 4l8 8M12 4l-8 8"/></svg>
+      </button>
+    </div>
     <span class="hkk-search__count"></span>
     <button type="button" class="hkk-search__btn" data-action="prev" title="上一个 (Shift+Enter)">
       <svg viewBox="0 0 16 16"><path fill="currentColor" d="M8 4l5 6H3z"/></svg>
@@ -58,6 +63,16 @@ export function initSearch() {
     if (action === 'prev') gotoMatch(-1);
     else if (action === 'next') gotoMatch(1);
     else if (action === 'close') closeBar();
+    else if (action === 'clear-input') {
+      input.value = '';
+      lastQuery = '';
+      matches = [];
+      currentIdx = -1;
+      clearHighlights();
+      renderMinimap();
+      updateCount();
+      input.focus();
+    }
   });
 
   // 输入变化:重算 + 跳第一个
