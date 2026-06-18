@@ -300,6 +300,79 @@ body .vditor-toolbar__divider {
     border-left-color: rgba(255, 255, 255, 0.35) !important;
 }
 
+/* ============================================================
+ * Phase 4.3 IR 模式上下文 popover (光标进入特定块时浮出操作菜单)
+ * ============================================================ */
+.hkk-popover {
+    position: fixed;
+    z-index: 1400;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: #1e1e1e;
+    color: #cccccc;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 5px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
+    font-size: 12px;
+    line-height: 1.4;
+    user-select: none;
+    white-space: nowrap;
+    max-width: 90vw;
+    overflow: hidden;
+}
+.hkk-popover--hidden { display: none !important; }
+
+.hkk-popover__label {
+    font-weight: 600;
+    color: #79b8ff;
+    padding-right: 4px;
+    border-right: 1px solid rgba(255, 255, 255, 0.18);
+    margin-right: 2px;
+}
+.hkk-popover__hint {
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 11px;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.hkk-popover__url {
+    color: rgba(255, 255, 255, 0.5);
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    font-size: 11px;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.hkk-popover__sep {
+    display: inline-block;
+    width: 1px;
+    height: 14px;
+    background: rgba(255, 255, 255, 0.18);
+    margin: 0 2px;
+}
+.hkk-popover__btn {
+    padding: 2px 8px;
+    font-size: 11px;
+    background: transparent;
+    color: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: inherit;
+}
+.hkk-popover__btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.35);
+}
+.hkk-popover__btn--danger:hover {
+    background: rgba(220, 53, 69, 0.25);
+    border-color: rgba(220, 53, 69, 0.6);
+    color: #ff6b7a;
+}
+
 /* 修:工具栏 tooltip 在点完按钮后 :focus / :active 状态卡住不消失
  * 只允许 :hover 触发,避免点击后 tooltip 残留在屏幕上 */
 .vditor-toolbar .vditor-tooltipped:focus::before,

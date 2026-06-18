@@ -1,6 +1,7 @@
 import { openLink, hotKeys, imageParser, getToolbar, autoSymbol, onToolbarClick, createContextMenu, scrollEditor, initThemeToggle, updateThemeToggle } from "./util.js";
 import { initTOC } from "./toc.js";
 import { initSearch } from "./search.js";
+import { initPopover } from "./popover.js";
 
 let state;
 function loadConfigs() {
@@ -136,6 +137,7 @@ handler.on("open", async (md) => {
       onToolbarClick(editor)
       initTOC()
       initSearch()
+      initPopover()
 
       // setValue 前先清空 selection + blur,防止 vditor 内部 addCaret 因 stale Range 崩溃
       const safeSetValue = (content) => {
