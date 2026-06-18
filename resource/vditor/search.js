@@ -7,10 +7,15 @@
 let bar = null;
 let input = null;
 let countLabel = null;
+let minimap = null;
 let isOpen = false;
 let matches = [];   // [{ node, start, end }, ...]
 let currentIdx = -1;
 let lastQuery = '';
+
+function supportsHighlightAPI() {
+  return typeof window.Highlight !== 'undefined' && window.CSS && CSS.highlights;
+}
 
 // ───── 找当前可见模式的编辑器内容区 (只在此处搜) ─────
 function getEditorEl() {
@@ -87,8 +92,12 @@ export function initSearch() {
     }
   }, true);
 
-  // 外部 update / 模式切换会改 DOM,缓存的 matches 失效;关掉重来即可
-  // (轻量处理:打开搜索时总是重新 findAll,所以缓存只在单次会话内有效)
+  // 滚动条右侧的小色条 overlay (匹配位置 minimap)
+  minimap = document.createElement('div');
+  minimap.id = 'hkk-search-minimap';
+  minimap.className = 'hkk-search__minimap';
+  document.body.appendChild(minimap);
+  window.addEventListener('resize', renderMinimap);
 
   window.__hkkSearch = { open: openBar, close: closeBar };
 }
@@ -131,7 +140,8 @@ function closeBar() {
   bar.classList.add('hkk-search--hidden');
   matches = [];
   currentIdx = -1;
-  // 选择保留 (用户关掉搜索后光标停留在最后一次匹配处),无需清
+  clearHighlights();
+  renderMinimap();
   // 把焦点还给编辑器
   const editor = getEditorEl();
   if (editor) {
@@ -169,24 +179,103 @@ function findAll(query) {
 
 function showCurrent() {
   updateCount();
+  buildHighlights();
+  renderMinimap();
   if (currentIdx < 0 || !matches[currentIdx]) return;
-  const m = matches[currentIdx];
+  scrollToMatch(currentIdx);
+}
+
+// 把视口卷到 idx 对应的匹配处 (居中),不动焦点
+function scrollToMatch(idx) {
+  const m = matches[idx];
+  if (!m) return;
+  const editor = getEditorEl();
+  if (!editor) return;
   try {
     const range = document.createRange();
     range.setStart(m.node, m.start);
     range.setEnd(m.node, m.end);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    // 滚到视口中部
-    const el = m.node.parentElement;
-    if (el && el.scrollIntoView) {
-      el.scrollIntoView({ block: 'center', behavior: 'instant' });
-    }
-    // 选完后焦点要还给搜索框,否则后续 Enter 不响应
-    setTimeout(() => { if (isOpen) input.focus(); }, 0);
-  } catch (e) {
-    // node 可能在编辑过程中被销毁,忽略单个失败
+    const rect = range.getBoundingClientRect();
+    const editorRect = editor.getBoundingClientRect();
+    const margin = 60;
+    // 已经在视口内 (留一点边界)就不滚
+    if (rect.top >= editorRect.top + margin && rect.bottom <= editorRect.bottom - margin) return;
+    const targetTop = editor.scrollTop + (rect.top - editorRect.top) - editorRect.height / 2 + rect.height / 2;
+    editor.scrollTo({ top: targetTop, behavior: 'instant' });
+  } catch {}
+}
+
+// ───── Custom Highlight API:所有匹配 + 当前匹配,跟焦点无关,持续可见 ─────
+function buildHighlights() {
+  if (!supportsHighlightAPI()) return;
+  const allRanges = [];
+  let currentRange = null;
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    try {
+      const r = document.createRange();
+      r.setStart(m.node, m.start);
+      r.setEnd(m.node, m.end);
+      allRanges.push(r);
+      if (i === currentIdx) currentRange = r;
+    } catch {}
+  }
+  if (allRanges.length > 0) {
+    CSS.highlights.set('hkk-search-match', new Highlight(...allRanges));
+  } else {
+    CSS.highlights.delete('hkk-search-match');
+  }
+  if (currentRange) {
+    CSS.highlights.set('hkk-search-current', new Highlight(currentRange));
+  } else {
+    CSS.highlights.delete('hkk-search-current');
+  }
+}
+
+function clearHighlights() {
+  if (!supportsHighlightAPI()) return;
+  CSS.highlights.delete('hkk-search-match');
+  CSS.highlights.delete('hkk-search-current');
+}
+
+// ───── 滚动条右侧 minimap:每个匹配位置一个小色条 ─────
+function renderMinimap() {
+  if (!minimap) return;
+  if (!isOpen || matches.length === 0) {
+    minimap.style.display = 'none';
+    minimap.innerHTML = '';
+    return;
+  }
+  const editor = getEditorEl();
+  if (!editor) { minimap.style.display = 'none'; return; }
+  const editorRect = editor.getBoundingClientRect();
+  const scrollH = editor.scrollHeight;
+  if (scrollH <= 0 || editorRect.height <= 0) {
+    minimap.style.display = 'none';
+    return;
+  }
+  // 位置:跨整个滚动条高度,贴在编辑区右侧 (覆盖在滚动条上)
+  minimap.style.display = 'block';
+  minimap.style.top = editorRect.top + 'px';
+  minimap.style.left = (editorRect.right - 12) + 'px';
+  minimap.style.width = '12px';
+  minimap.style.height = editorRect.height + 'px';
+
+  minimap.innerHTML = '';
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    try {
+      const r = document.createRange();
+      r.setStart(m.node, m.start);
+      r.setEnd(m.node, m.end);
+      const rect = r.getBoundingClientRect();
+      const matchYInContent = rect.top - editorRect.top + editor.scrollTop;
+      const ratio = Math.max(0, Math.min(1, matchYInContent / scrollH));
+      const mark = document.createElement('div');
+      mark.className = 'hkk-search__mark' + (i === currentIdx ? ' hkk-search__mark--current' : '');
+      mark.style.top = (ratio * 100) + '%';
+      minimap.appendChild(mark);
+    } catch {}
   }
 }
 

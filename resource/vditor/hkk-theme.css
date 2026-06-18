@@ -190,6 +190,39 @@
     color: var(--vscode-statusBarItem-errorForeground, #fff);
 }
 
+/* 所有匹配 — Custom Highlight API,跟焦点无关持续可见 */
+::highlight(hkk-search-match) {
+    background-color: var(--vscode-editor-findMatchHighlightBackground, rgba(234, 92, 0, 0.40));
+}
+/* 当前匹配 — 更深更显眼,叠在 match 上 */
+::highlight(hkk-search-current) {
+    background-color: var(--vscode-editor-findMatchBackground, rgba(255, 165, 0, 0.65));
+    color: inherit;
+}
+
+/* 滚动条右侧匹配位置 minimap — 在滚动条上方画小色条 */
+.hkk-search__minimap {
+    position: fixed;
+    pointer-events: none;
+    z-index: 998;
+    display: none;
+}
+.hkk-search__mark {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    height: 3px;
+    margin-top: -1px;
+    background: var(--vscode-editorOverviewRuler-findMatchForeground, rgba(234, 92, 0, 0.75));
+    border-radius: 1px;
+}
+.hkk-search__mark--current {
+    height: 5px;
+    margin-top: -2px;
+    background: var(--vscode-editorOverviewRuler-findMatchForeground, rgba(255, 165, 0, 1));
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
 /* ---------- IR 模式链接 - 已展开时:文本光标 (I-beam),进入编辑态 ---------- */
 #vditor .vditor-ir .vditor-ir__node--expand .vditor-ir__link,
 #vditor .vditor-ir .vditor-ir__node--expand a[href],
