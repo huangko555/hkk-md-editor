@@ -223,17 +223,39 @@
     color: var(--vscode-statusBarItem-errorForeground, #fff);
 }
 
-/* 所有匹配 — 实心黄底 */
+/* 所有匹配 — 显眼黄底 */
 ::highlight(hkk-search-match) {
-    background-color: #ffe600;
+    background-color: rgba(255, 230, 0, 0.55);
     color: #1e1e1e;
 }
-/* 当前匹配 — 实心橙底,叠在 match 上 */
+/* 当前匹配 — 橙色,叠在 match 上 */
 ::highlight(hkk-search-current) {
-    background-color: #ff8c00;
+    background-color: rgba(255, 140, 0, 0.85);
     color: #1e1e1e;
 }
 
+/* 滚动条右侧匹配位置 minimap — 在滚动条上方画小色条 */
+.hkk-search__minimap {
+    position: fixed;
+    pointer-events: none;
+    z-index: 998;
+    display: none;
+}
+.hkk-search__mark {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    height: 3px;
+    margin-top: -1px;
+    background: rgba(255, 230, 0, 0.9);
+    border-radius: 1px;
+}
+.hkk-search__mark--current {
+    height: 5px;
+    margin-top: -2px;
+    background: rgba(255, 140, 0, 1);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
 
 /* ---------- IR 模式链接 - 已展开时:文本光标 (I-beam),进入编辑态 ---------- */
 #vditor .vditor-ir .vditor-ir__node--expand .vditor-ir__link,
