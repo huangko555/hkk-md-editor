@@ -22,8 +22,7 @@ a {
 }
 
 .vditor-reset {
-    padding: 0 24px !important;  /* 原 5% 太宽 (原是为 VS Code 原生 find marks 列留位),
-                                     现自家搜索不需要这一列,缩到固定 24px 留点呼吸感 */
+    padding: 0 5% !important;
 }
 
 .win32 * {
