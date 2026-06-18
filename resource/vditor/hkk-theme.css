@@ -324,6 +324,11 @@ body .vditor-toolbar__divider {
 }
 .hkk-popover--hidden { display: none !important; }
 
+/* 表格 popover 折叠态:更紧凑,只一个 … 按钮 */
+.hkk-popover--mini {
+    padding: 2px 4px;
+}
+
 .hkk-popover__label {
     font-weight: 600;
     color: #79b8ff;
@@ -354,23 +359,42 @@ body .vditor-toolbar__divider {
     margin: 0 2px;
 }
 .hkk-popover__btn {
-    padding: 2px 8px;
-    font-size: 11px;
+    width: 24px;
+    height: 22px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: transparent;
     color: inherit;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: none;
     border-radius: 3px;
     cursor: pointer;
     font-family: inherit;
+    opacity: 0.85;
+}
+.hkk-popover__btn svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+    pointer-events: none;
 }
 .hkk-popover__btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.35);
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.12);
 }
 .hkk-popover__btn--danger:hover {
     background: rgba(220, 53, 69, 0.25);
-    border-color: rgba(220, 53, 69, 0.6);
     color: #ff6b7a;
+}
+/* mini 按钮:折叠态的 … */
+.hkk-popover__btn--mini {
+    width: 22px;
+    height: 20px;
+    font-size: 14px;
+    line-height: 1;
+    font-weight: 600;
+    padding: 0 0 4px 0;
 }
 
 /* 修:工具栏 tooltip 在点完按钮后 :focus / :active 状态卡住不消失
