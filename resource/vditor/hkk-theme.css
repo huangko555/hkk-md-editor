@@ -223,14 +223,14 @@
     color: var(--vscode-statusBarItem-errorForeground, #fff);
 }
 
-/* 所有匹配 — 显眼黄底 */
+/* 所有匹配 — 实心黄底 */
 ::highlight(hkk-search-match) {
-    background-color: rgba(255, 230, 0, 0.55);
+    background-color: #ffe600;
     color: #1e1e1e;
 }
-/* 当前匹配 — 橙色,叠在 match 上 */
+/* 当前匹配 — 实心橙底,叠在 match 上 */
 ::highlight(hkk-search-current) {
-    background-color: rgba(255, 140, 0, 0.85);
+    background-color: #ff8c00;
     color: #1e1e1e;
 }
 
@@ -247,13 +247,13 @@
     right: 2px;
     height: 3px;
     margin-top: -1px;
-    background: rgba(255, 230, 0, 0.9);
+    background: #ffe600;
     border-radius: 1px;
 }
 .hkk-search__mark--current {
     height: 5px;
     margin-top: -2px;
-    background: rgba(255, 140, 0, 1);
+    background: #ff8c00;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
 }
 
