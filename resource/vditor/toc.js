@@ -18,7 +18,7 @@ let headings = [];
 let collapsedSet = new Set();
 // 当前激活的 heading index (scroll spy 用)
 let activeIdx = -1;
-const ACTIVE_TOP_RATIO = 0.3; // 可见区高度 × 这个比例 = 当前段分界线 (30% 从顶起)
+const ACTIVE_TOP_RATIO = 0.2; // 可见区高度 × 这个比例 = 当前段分界线 (20% 从顶起)
 // 滚动事件绑定状态 (模式切换时重绑)
 let scrollEl = null;
 let scrollHandler = null;
@@ -46,11 +46,20 @@ export function initTOC() {
   container.className = 'hkk-toc hkk-toc--hidden hkk-toc--floating';
   container.innerHTML = `
     <div class="hkk-toc__header">
-      <button type="button" class="hkk-toc__btn" data-action="expand-all" title="展开全部">展开全部</button>
-      <button type="button" class="hkk-toc__btn" data-action="collapse-top2" title="只展开前两级">收起</button>
+      <span class="hkk-toc__label">目录</span>
       <span class="hkk-toc__spacer"></span>
-      <button type="button" class="hkk-toc__btn" data-action="toggle-mode" title="切到固定">固定</button>
-      <button type="button" class="hkk-toc__btn hkk-toc__close" data-action="close" title="关闭">×</button>
+      <button type="button" class="hkk-toc__btn hkk-toc__icon-btn" data-action="collapse-top2" title="只展开前两级">
+        <svg><use xlink:href="#vditor-icon-up"></use></svg>
+      </button>
+      <button type="button" class="hkk-toc__btn hkk-toc__icon-btn" data-action="expand-all" title="展开全部">
+        <svg><use xlink:href="#vditor-icon-down"></use></svg>
+      </button>
+      <button type="button" class="hkk-toc__btn hkk-toc__icon-btn" data-action="toggle-mode" title="切到固定">
+        <svg viewBox="0 0 16 16"><path fill="currentColor" d="M4.146.146A.5.5 0 0 1 4.5 0h7a.5.5 0 0 1 .5.5c0 .68-.342 1.174-.646 1.479-.126.125-.25.224-.354.298v4.431l.078.048c.203.127.476.314.751.555C12.36 7.775 13 8.527 13 9.5a.5.5 0 0 1-.5.5h-4v4.5c0 .276-.224 1.5-.5 1.5s-.5-1.224-.5-1.5V10h-4a.5.5 0 0 1-.5-.5c0-.973.64-1.725 1.17-2.189A5.921 5.921 0 0 1 5 6.708V2.277a2.77 2.77 0 0 1-.354-.298C4.342 1.674 4 1.179 4 .5a.5.5 0 0 1 .146-.354Z"/></svg>
+      </button>
+      <button type="button" class="hkk-toc__btn hkk-toc__icon-btn hkk-toc__close" data-action="close" title="关闭">
+        <svg viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg>
+      </button>
     </div>
     <div class="hkk-toc__body">(目录加载中)</div>
     <div class="hkk-toc__resizer" title="拖动调整宽度"></div>
@@ -133,12 +142,9 @@ function setMode(next) {
   container.classList.toggle('hkk-toc--floating', mode === 'floating');
   container.classList.toggle('hkk-toc--fixed', mode === 'fixed');
   document.body.classList.toggle('hkk-toc-fixed-open', mode === 'fixed' && isOpen);
-  // 切换钮文字
+  // 切换钮 title (图标不变,只换 tooltip 文字)
   const btn = container.querySelector('[data-action="toggle-mode"]');
-  if (btn) {
-    btn.textContent = mode === 'floating' ? '固定' : '浮动';
-    btn.title = mode === 'floating' ? '切到固定' : '切到浮动';
-  }
+  if (btn) btn.title = mode === 'floating' ? '切到固定' : '切到浮动';
   // 应用宽度
   applyWidth();
 }
@@ -259,14 +265,14 @@ function renderNode(n) {
   const hasChildren = n.children.length > 0;
   const collapsed = collapsedSet.has(n.path);
   const foldBtn = hasChildren
-    ? `<span class="hkk-toc-fold" data-path="${escapeAttr(n.path)}" aria-label="${collapsed ? '展开' : '折叠'}">${collapsed ? '▶' : '▼'}</span>`
+    ? `<span class="hkk-toc-fold" data-path="${escapeAttr(n.path)}" aria-label="${collapsed ? '展开' : '折叠'}"><span class="hkk-toc-fold__icon">${collapsed ? '▶' : '▼'}</span></span>`
     : '<span class="hkk-toc-fold-placeholder"></span>';
   // active class 不在这里加,交给 highlightActive 统一处理,以便支持"折叠时高亮可见祖先"
   const link = `<a class="hkk-toc-link hkk-toc-link--h${n.level}" data-idx="${n.idx}" title="${escapeAttr(n.text)}">${escapeHtml(n.text)}</a>`;
   const childrenHtml = (hasChildren && !collapsed)
     ? `<ul class="hkk-toc-tree">${n.children.map(renderNode).join('')}</ul>`
     : '';
-  return `<li class="hkk-toc-node">${foldBtn}${link}${childrenHtml}</li>`;
+  return `<li class="hkk-toc-node"><div class="hkk-toc-row">${foldBtn}${link}</div>${childrenHtml}</li>`;
 }
 
 // 抓标题文本(去掉 IR marker 里的 ## 等符号)

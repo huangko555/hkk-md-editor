@@ -100,7 +100,8 @@ export function updateThemeToggle(theme) {
     themeToggleBtn.setAttribute('aria-label', themeToggleBtn.title);
 }
 
-const HKK_TOC_ICON = '<svg viewBox="0 0 16 16" width="16" height="16"><path fill="currentColor" d="M2 3h12v1H2V3zm2 3h10v1H4V6zm0 3h8v1H4V9zm-2 3h12v1H2v-1z"/></svg>';
+// 复用 vditor 原版 outline 按钮的图标 (material.js 里的 vditor-icon-align-center symbol)
+const HKK_TOC_ICON = '<svg><use xlink:href="#vditor-icon-align-center"></use></svg>';
 
 export async function getToolbar(resPath) {
     return [
