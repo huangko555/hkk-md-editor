@@ -43,10 +43,10 @@ export function initSearch() {
     </div>
     <span class="hkk-search__count"></span>
     <button type="button" class="hkk-search__btn" data-action="prev" title="上一个 (Shift+Enter)">
-      <svg viewBox="0 0 16 16"><path fill="currentColor" d="M8 4l5 6H3z"/></svg>
+      <svg viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M3 10l5-5 5 5"/></svg>
     </button>
     <button type="button" class="hkk-search__btn" data-action="next" title="下一个 (Enter)">
-      <svg viewBox="0 0 16 16"><path fill="currentColor" d="M8 12L3 6h10z"/></svg>
+      <svg viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M3 6l5 5 5-5"/></svg>
     </button>
     <button type="button" class="hkk-search__btn hkk-search__close" data-action="close" title="关闭 (Esc)">
       <svg viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg>

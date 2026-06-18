@@ -287,11 +287,11 @@
     position: fixed;
     z-index: 999;
     box-sizing: border-box;
-    background: var(--vscode-sideBar-background, var(--vscode-editor-background, #1e1e1e));
-    color: var(--vscode-sideBar-foreground, var(--vscode-editor-foreground, #cccccc));
+    background: var(--vscode-editor-background, #1e1e1e);
+    color: var(--vscode-editor-foreground, #cccccc);
     border: 1px solid var(--vscode-panel-border, var(--vscode-contrastBorder, rgba(255, 255, 255, 0.15)));
     border-radius: 4px;
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.7);
     display: flex;
     flex-direction: column;
     font-size: 12px;
@@ -310,10 +310,10 @@
 
 /* 固定态:在工具栏下方贴左侧整高,挤压编辑内容区 (工具栏跨全宽) */
 .hkk-toc--fixed {
-    top: var(--hkk-toolbar-h, 36px);
-    left: 0;
+    top: calc(var(--hkk-toolbar-h, 36px) + 1px);
+    left: 1px;
     width: 260px;
-    height: calc(100vh - var(--hkk-toolbar-h, 36px));
+    height: calc(100vh - var(--hkk-toolbar-h, 36px) - 1px);
     max-height: none;
     border-top: none;
     border-bottom: none;
@@ -338,9 +338,8 @@ body.hkk-toc-fixed-open .vditor-content {
     align-items: center;
     gap: 2px;
     padding: 6px 8px;
-    background: var(--vscode-sideBarSectionHeader-background, var(--vscode-titleBar-activeBackground, rgba(255, 255, 255, 0.05)));
-    color: var(--vscode-sideBarSectionHeader-foreground, inherit);
-    border-bottom: 1px solid var(--vscode-panel-border, rgba(255, 255, 255, 0.1));
+    background: var(--vscode-editor-background, #1e1e1e);
+    color: inherit;
     border-radius: 10px 10px 0 0; /* 跟外层圆角对齐,固定态会被外层 border-radius:0 覆盖 */
 }
 .hkk-toc__label {
