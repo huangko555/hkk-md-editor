@@ -94,31 +94,35 @@ export function initSearch() {
 }
 
 function openBar() {
-  // 预填:取当前选中文字 (去掉换行,搜索框单行)
+  // 只接受【编辑器内】的选中文字,排除搜索框自己 / TOC / 工具栏的 selection
   const sel = window.getSelection();
-  let initialText = sel ? sel.toString() : '';
-  initialText = initialText.replace(/[\r\n]+/g, ' ').trim();
+  const editor = getEditorEl();
+  let initialText = '';
+  if (sel && sel.rangeCount > 0 && editor && sel.anchorNode && editor.contains(sel.anchorNode)) {
+    initialText = sel.toString().replace(/[\r\n]+/g, ' ').trim();
+  }
 
   isOpen = true;
   bar.classList.remove('hkk-search--hidden');
-  input.value = initialText;
-  input.focus();
-  input.select();
 
-  if (initialText && initialText !== lastQuery) {
-    lastQuery = initialText;
-    findAll(initialText);
-    currentIdx = matches.length > 0 ? 0 : -1;
-    showCurrent();
-  } else if (!initialText) {
-    matches = [];
-    currentIdx = -1;
-    lastQuery = '';
-    updateCount();
+  if (initialText) {
+    // 有新的编辑器选中:覆盖搜索框
+    input.value = initialText;
+    if (initialText !== lastQuery) {
+      lastQuery = initialText;
+      findAll(initialText);
+      currentIdx = matches.length > 0 ? 0 : -1;
+      showCurrent();
+    } else {
+      updateCount();
+    }
   } else {
-    // 已有相同查询,仅刷新 UI
+    // 没有编辑器选中:保留搜索框原值 (首次打开为空),只刷新 UI
     updateCount();
   }
+
+  input.focus();
+  input.select();
 }
 
 function closeBar() {
