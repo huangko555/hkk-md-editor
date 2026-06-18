@@ -7,7 +7,6 @@
 let bar = null;
 let input = null;
 let countLabel = null;
-let minimap = null;
 let isOpen = false;
 let matches = [];   // [{ node, start, end }, ...]
 let currentIdx = -1;
@@ -69,7 +68,6 @@ export function initSearch() {
       matches = [];
       currentIdx = -1;
       clearHighlights();
-      renderMinimap();
       updateCount();
       input.focus();
     }
@@ -106,13 +104,6 @@ export function initSearch() {
       e.preventDefault();
     }
   }, true);
-
-  // 滚动条右侧的小色条 overlay (匹配位置 minimap)
-  minimap = document.createElement('div');
-  minimap.id = 'hkk-search-minimap';
-  minimap.className = 'hkk-search__minimap';
-  document.body.appendChild(minimap);
-  window.addEventListener('resize', renderMinimap);
 
   window.__hkkSearch = { open: openBar, close: closeBar };
 }
@@ -156,7 +147,6 @@ function closeBar() {
   matches = [];
   currentIdx = -1;
   clearHighlights();
-  renderMinimap();
   // 把焦点还给编辑器
   const editor = getEditorEl();
   if (editor) {
@@ -195,7 +185,6 @@ function findAll(query) {
 function showCurrent() {
   updateCount();
   buildHighlights();
-  renderMinimap();
   if (currentIdx < 0 || !matches[currentIdx]) return;
   scrollToMatch(currentIdx);
 }
@@ -253,46 +242,6 @@ function clearHighlights() {
   CSS.highlights.delete('hkk-search-current');
 }
 
-// ───── 滚动条右侧 minimap:每个匹配位置一个小色条 ─────
-function renderMinimap() {
-  if (!minimap) return;
-  if (!isOpen || matches.length === 0) {
-    minimap.style.display = 'none';
-    minimap.innerHTML = '';
-    return;
-  }
-  const editor = getEditorEl();
-  if (!editor) { minimap.style.display = 'none'; return; }
-  const editorRect = editor.getBoundingClientRect();
-  const scrollH = editor.scrollHeight;
-  if (scrollH <= 0 || editorRect.height <= 0) {
-    minimap.style.display = 'none';
-    return;
-  }
-  // 位置:跨整个滚动条高度,贴在编辑区右侧 (覆盖在滚动条上)
-  minimap.style.display = 'block';
-  minimap.style.top = editorRect.top + 'px';
-  minimap.style.left = (editorRect.right - 12) + 'px';
-  minimap.style.width = '12px';
-  minimap.style.height = editorRect.height + 'px';
-
-  minimap.innerHTML = '';
-  for (let i = 0; i < matches.length; i++) {
-    const m = matches[i];
-    try {
-      const r = document.createRange();
-      r.setStart(m.node, m.start);
-      r.setEnd(m.node, m.end);
-      const rect = r.getBoundingClientRect();
-      const matchYInContent = rect.top - editorRect.top + editor.scrollTop;
-      const ratio = Math.max(0, Math.min(1, matchYInContent / scrollH));
-      const mark = document.createElement('div');
-      mark.className = 'hkk-search__mark' + (i === currentIdx ? ' hkk-search__mark--current' : '');
-      mark.style.top = (ratio * 100) + '%';
-      minimap.appendChild(mark);
-    } catch {}
-  }
-}
 
 function gotoMatch(delta) {
   if (matches.length === 0) {
