@@ -20,6 +20,17 @@
 #vditor[data-editor-theme="HKK"] .vditor-reset h6 {
     color: #79b8ff !important;
 }
+/* 标题里所有子元素 (加粗、斜体、删除线、行内代码、链接 等) 都跟标题同色蓝;
+ * base.css 有 *:not(...){color:var(--front-color)!important} 全局压制,这里
+ * 用 ID + 多个类 提高特异性盖过去。加粗/斜体的字重/字形仍生效,只统一颜色 */
+#vditor[data-editor-theme="HKK"] .vditor-reset h1 *,
+#vditor[data-editor-theme="HKK"] .vditor-reset h2 *,
+#vditor[data-editor-theme="HKK"] .vditor-reset h3 *,
+#vditor[data-editor-theme="HKK"] .vditor-reset h4 *,
+#vditor[data-editor-theme="HKK"] .vditor-reset h5 *,
+#vditor[data-editor-theme="HKK"] .vditor-reset h6 * {
+    color: #79b8ff !important;
+}
 
 /* 引用块左边线:细蓝 2px */
 #vditor[data-editor-theme="HKK"] .vditor-reset blockquote {

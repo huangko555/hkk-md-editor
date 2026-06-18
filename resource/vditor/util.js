@@ -105,7 +105,7 @@ const HKK_TOC_ICON = '<svg><use xlink:href="#vditor-icon-align-center"></use></s
 
 export async function getToolbar(resPath) {
     return [
-        'outline',
+        // 目录
         {
             name: 'hkk-toc',
             tipPosition: 's',
@@ -115,66 +115,71 @@ export async function getToolbar(resPath) {
                 window.__hkkToc?.toggle();
             }
         },
+        "|",
+        // 标题 / 粗体 / 斜体 / 删除线 / 链接
         "headings",
         "bold",
         "italic",
         "strike",
         "link",
         "|",
+        // 列表 / 表格
+        "list",
+        "ordered-list",
+        "check",
+        "table",
+        "|",
+        // 引用 / 分隔线 / 代码 / 行内代码
+        "quote",
+        "line",
+        "code",
+        "inline-code",
+        "|",
+        // 上传 / 预览 / Edit In VSCode / 更多
+        { name: 'upload', tipPosition: 'e' },
+        "preview",
         {
             tipPosition: 's',
             tip: `Edit In VSCode (${shortcutTip})`,
-            className: 'right',
             icon: await loadRes(`${resPath}/icon/vscode.svg`),
             click() {
                 handler.emit("editInVSCode", true)
             }
         },
         {
+            name: 'more',
             tipPosition: 's',
-            tip: 'Export To Pdf',
-            className: 'right',
-            icon: await loadRes(`${resPath}/icon/pdf.svg`),
-            click() {
-                handler.emit("export")
-            }
-        },
-        { name: 'upload', tipPosition: 'e' },
-        "|",
-        {
-            name: 'selectTheme',
-            tipPosition: 's', tip: 'Select Theme',
-            icon: 'Theme:',
-            click() {
-                handler.emit("theme")
-            }
-        },
-        {
-            tipPosition: 's', tip: 'Select Theme',
-            icon: await loadRes(`${resPath}/icon/theme.svg`),
-            click() {
-                handler.emit("theme")
-            }
-        },
-        "|",
-        // "edit-mode",  // 屏蔽掉, 现版本都是针对一种模式优化
-        "code-theme",
-        // "|",
-        "list",
-        "ordered-list",
-        "check",
-        "table",
-        "|",
-        "quote",
-        "line",
-        "code",
-        "inline-code",
-        "|",
-        "undo",
-        "redo",
-        "|",
-        "preview",
-        "help",
+            tip: '更多',
+            toolbar: [
+                "undo",
+                "redo",
+                "code-theme",
+                {
+                    name: 'selectTheme',
+                    tipPosition: 's', tip: 'Select Theme',
+                    icon: '主题:',
+                    click() {
+                        handler.emit("theme")
+                    }
+                },
+                {
+                    tipPosition: 's', tip: 'Select Theme',
+                    icon: '主题',
+                    click() {
+                        handler.emit("theme")
+                    }
+                },
+                {
+                    tipPosition: 's',
+                    tip: 'Export To Pdf',
+                    icon: '导出 PDF',
+                    click() {
+                        handler.emit("export")
+                    }
+                },
+                "help",
+            ]
+        }
     ]
 }
 
