@@ -406,6 +406,19 @@ body .vditor-toolbar__divider {
     visibility: hidden !important;
     opacity: 0 !important;
 }
+/* TOC 工具栏按钮:平时/focus/active 都白,仅 hover 蓝
+ * (压住 vditor 点击后 focus 卡蓝导致的"时蓝时白") */
+.vditor-toolbar .vditor-tooltipped[data-type="hkk-toc"],
+.vditor-toolbar .vditor-tooltipped[data-type="hkk-toc"]:focus,
+.vditor-toolbar .vditor-tooltipped[data-type="hkk-toc"]:active {
+    color: var(--front-color) !important;
+}
+.vditor-toolbar .vditor-tooltipped[data-type="hkk-toc"]:hover {
+    color: #4285f4 !important;
+}
+.vditor-toolbar .vditor-tooltipped[data-type="hkk-toc"] svg {
+    fill: currentColor !important;
+}
 .hkk-toc {
     position: fixed;
     z-index: 999;
@@ -436,13 +449,30 @@ body .vditor-toolbar__divider {
     top: calc(var(--hkk-toolbar-h, 36px) + 1px);
     left: 1px;
     width: 260px;
-    height: calc(100vh - var(--hkk-toolbar-h, 36px) - 1px);
+    height: calc(100vh - var(--hkk-toolbar-h, 36px) - 2px);
     max-height: none;
     border-top: none;
     border-bottom: none;
     border-left: none;
+    border-right: none;
     border-radius: 0;
     box-shadow: none;
+}
+/* 鼠标位于固定态 TOC 内时,右侧浮现一条细线提示边界 (移出即隐) */
+.hkk-toc--fixed::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 1px;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.1);
+    opacity: 0;
+    transition: opacity 120ms ease;
+    pointer-events: none;
+}
+.hkk-toc--fixed:hover::after {
+    opacity: 1;
 }
 .hkk-toc--fixed .hkk-toc__header {
     border-radius: 0;
@@ -461,12 +491,23 @@ body.hkk-toc-fixed-open .vditor-content {
     align-items: center;
     gap: 2px;
     padding: 6px 8px;
+    min-height: 22px; /* 内容隐藏时仍占住这段高度 */
     background: var(--vscode-editor-background, #1e1e1e);
     color: inherit;
     border-radius: 10px 10px 0 0; /* 跟外层圆角对齐,固定态会被外层 border-radius:0 覆盖 */
 }
+/* 仅固定态:按钮平时隐藏(高度照占),鼠标移入 TOC 才浮现;"目录"标题始终显示 */
+.hkk-toc--fixed .hkk-toc__header .hkk-toc__icon-btn {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.12s ease, visibility 0.12s ease;
+}
+.hkk-toc--fixed:hover .hkk-toc__header .hkk-toc__icon-btn {
+    opacity: 1;
+    visibility: visible;
+}
 .hkk-toc__label {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     letter-spacing: 1px;
     opacity: 0.85;
@@ -584,7 +625,7 @@ body.hkk-toc-fixed-open .vditor-content {
 }
 /* 当前滚动到的标题:蓝色文字 + 底色跟 hover 一致 (靠蓝字识别 active) */
 .hkk-toc-link--active {
-    background: rgba(255, 255, 255, 0.08) !important;
+    /* 选中态只靠蓝字识别,不要底色;底色只在 hover 时出现 */
     color: #79b8ff !important;
 }
 /* 不同标题级别只字号 / 字重不同,颜色统一 */
@@ -604,7 +645,10 @@ body.hkk-toc-fixed-open .vditor-content {
     height: 100%;
     cursor: ew-resize;
     z-index: 1;
+    background: transparent;
+    transition: background-color 120ms ease 0ms; /* 移出:立即消失 (delay 0) */
 }
 .hkk-toc__resizer:hover {
     background: var(--vscode-sash-hoverBorder, var(--vscode-focusBorder, rgba(0, 122, 204, 0.5)));
+    transition-delay: 250ms; /* 移入:停留 250ms 才出现手柄 */
 }

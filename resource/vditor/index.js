@@ -56,6 +56,137 @@ function focusEditable() {
   try { editable.focus(); return editable; } catch { return null; }
 }
 
+// ── B':可见文字偏移 ↔ DOM 光标位置 (撤销/重做光标定位的统一坐标系) ──
+// 遍历可见 IR 的文本节点时,统一跳过 .vditor-ir__marker 内的文本 (## ** > 等源符号)。
+// "编辑前记录" 与 "撤销后恢复" 用同一规则,不再依赖 markdown 源码↔DOM 的脆弱换算。
+// 排除"不算可见正文"的区域:源符号 marker (## ** ``` 等) + 预览区 (代码块/图片/数学的渲染副本)。
+// 注意:用精确类名 contains('vditor-ir__marker') —— 不会误伤 marker--pre / marker--link
+// 这类"内容容器"(它们包裹的是可编辑正文,要计入),只命中真正的源符号节点。
+function isExcluded(node, root) {
+  let el = node.nodeType === 1 ? node : node.parentElement;
+  while (el && el !== root) {
+    const c = el.classList;
+    if (c) {
+      if (c.contains('vditor-ir__preview')) return true;        // 渲染预览副本:排除 (优先,避免代码被算两遍)
+      if (c.contains('vditor-ir__marker--pre')) return false;   // 代码块 source:里面的代码是可编辑正文,保留
+      if (c.contains('vditor-ir__marker')) return true;         // 其它源符号 (## ** 语言info 等):排除
+    }
+    const dt = el.getAttribute && el.getAttribute('data-type');
+    if (dt === 'code-block-open-marker' || dt === 'code-block-close-marker') return true;  // ``` 围栏:排除
+    el = el.parentElement;
+  }
+  return false;
+}
+function makeVisWalker(root) {
+  return document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(n) {
+      return isExcluded(n, root) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+    }
+  });
+}
+// 文本节点所属的"行/格/块"单元:表格格(td/th)、列表项(li) 或顶层块。
+// 相邻文本节点跨单元时,getVisText 与落点都插一个分隔位,消除单元边界偏移二义
+// (否则:表格里单元格开头会落到上一格尾、句首会落到上一行尾)。
+function blockUnitOf(node, root) {
+  let el = node.nodeType === 1 ? node : node.parentElement;
+  while (el && el !== root) {
+    const tag = el.tagName;
+    if (tag === 'TD' || tag === 'TH' || tag === 'LI') return el;
+    if (el.parentElement === root) return el;
+    el = el.parentElement;
+  }
+  return el || root;
+}
+// 当前可见全文 (跳过 marker/preview),按"单元"插 '\n':撤销/重做时比对前后两份定位变化区
+function getVisText() {
+  const root = getEditorEl();
+  if (!root) return '';
+  const walker = makeVisWalker(root);
+  let s = '', node, prevUnit = null, first = true;
+  while ((node = walker.nextNode())) {
+    const unit = blockUnitOf(node, root);
+    if (!first && unit !== prevUnit) s += '\n';
+    s += node.textContent;
+    prevUnit = unit; first = false;
+  }
+  return s;
+}
+function placeCaretAtVisOffset(target) {
+  if (target < 0) return false;
+  const root = getEditorEl();
+  if (!root) return false;
+  const walker = makeVisWalker(root);
+  let node, acc = 0, lastNode = null, prevUnit = null, first = true;
+  while ((node = walker.nextNode())) {
+    const unit = blockUnitOf(node, root);
+    if (!first && unit !== prevUnit) acc += 1;   // 跨单元分隔,与 getVisText 完全对齐
+    const len = node.textContent.length;
+    // 单元内边界落前节点末尾(同格/同段连续,视觉无差);跨单元因分隔不再重合,各归各位。
+    if (acc + len >= target) { placeRangeAt(node, target - acc); return true; }
+    acc += len;
+    lastNode = node; prevUnit = unit; first = false;
+  }
+  if (lastNode) { placeRangeAt(lastNode, lastNode.textContent.length); return true; }
+  return false;
+}
+// 降级:可见文字 diff 看不到变化 (变化在代码块/公式等 marker/preview 区) 时,
+// 用 markdown diff 找出变化所在的顶层块,光标落到该块,至少不跳文档末尾。
+function placeCaretAtChangedBlock(fromMd, toMd) {
+  const root = getEditorEl();
+  if (!root) return false;
+  const minL = Math.min(fromMd.length, toMd.length);
+  let d = 0;
+  while (d < minL && fromMd.charCodeAt(d) === toMd.charCodeAt(d)) d++;
+  // d 落在 toMd 的第几个块 (按空行 \n\n 切)
+  let blockIdx = 0, pos = 0;
+  while (pos < toMd.length) {
+    let nb = toMd.indexOf('\n\n', pos);
+    if (nb === -1) nb = toMd.length;
+    if (d >= pos && d <= nb) break;
+    pos = nb + 2; blockIdx++;
+  }
+  const block = root.children[blockIdx] || root.children[root.children.length - 1];
+  if (!block) return false;
+  // 降级优先:块内若有 IR 节点 (链接/公式/强调等可见坐标系盲区),落进它的文字。
+  // placeRangeAt 落进 .vditor-ir__node 会自动给它加 --expand → 顺带解决"不展开"。
+  const irNode = block.querySelector && block.querySelector('.vditor-ir__node');
+  if (irNode) {
+    const w = document.createTreeWalker(irNode, NodeFilter.SHOW_TEXT);
+    const tn = w.nextNode();
+    if (tn) { placeRangeAt(tn, 0); return true; }
+  }
+  // 否则落到块内最后一个可见文本节点末尾;整块都是 marker/preview 就落块开头
+  const walker = makeVisWalker(block);
+  let node, last = null;
+  while ((node = walker.nextNode())) last = node;
+  if (last) placeRangeAt(last, last.textContent.length);
+  else placeRangeAt(block, 0);
+  return true;
+}
+function placeRangeAt(node, domOffset) {
+  try {
+    const range = document.createRange();
+    range.setStart(node, Math.min(domOffset, node.textContent.length));
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    focusEditable();
+    if (node.parentElement && node.parentElement.scrollIntoView) {
+      node.parentElement.scrollIntoView({ block: 'center', behavior: 'instant' });
+    }
+    // 光标所在的 .vditor-ir__node 强制 --expand,显示 markdown 源符号 (## ** 等)
+    const startEl = node.nodeType === 1 ? node : node.parentElement;
+    const irNode = startEl?.closest('.vditor-ir__node');
+    if (irNode) {
+      document.querySelectorAll('.vditor-ir__node--expand').forEach(n => {
+        if (n !== irNode) n.classList.remove('vditor-ir__node--expand');
+      });
+      irNode.classList.add('vditor-ir__node--expand');
+    }
+  } catch { }
+}
+
 let doCustomUndo = () => { };
 let doCustomRedo = () => { };
 
@@ -89,9 +220,11 @@ handler.on("open", async (md) => {
     _lutePath: md.rootPath + '/lute.min.js',
     cdn: md.rootPath,
     height: document.documentElement.clientHeight,
-    outline: { enable: config.openOutline, position: 'left' },
+    outline: { enable: false, position: 'left' },   // 原生大纲彻底关闭 (已由自定义 TOC 替代),不再读 config
     toolbarConfig: { hide: config.hideToolbar },
     cache: { enable: false },
+    undoDelay: 200,   // input 防抖:默认 800ms 太长,会把"分别编辑的多处"合并成一个撤销步;改 200ms 让光标一移动就分界
+
     mode: 'ir',
     lang: language == 'zh-cn' ? 'zh_CN' : config.editorLanguage,
     icon: "material",
@@ -107,9 +240,11 @@ handler.on("open", async (md) => {
     extPath: md.rootPath,
     input(content) {
       if (content === currentSavedContent) return;
-      // 旧状态压栈 (光标位置不存,Ctrl+Z 时按 diff 找编辑位置)
-      if (undoStack.length === 0 || undoStack[undoStack.length - 1] !== currentSavedContent) {
-        undoStack.push(currentSavedContent);
+      // 只存内容快照。光标落点在撤销/重做时,靠"切换前后可见文本 diff"现算 (变化区末尾)。
+      const oldContent = currentSavedContent;
+      const top = undoStack[undoStack.length - 1];
+      if (!top || top.content !== oldContent) {
+        undoStack.push({ content: oldContent });
         if (undoStack.length > UNDO_LIMIT) undoStack.shift();
       }
       redoStack.length = 0;
@@ -149,127 +284,53 @@ handler.on("open", async (md) => {
         try { editor.setValue(content); } catch (e) { dlog('[hkk] setValue threw:', String(e)); }
       };
 
-      // 第一处不同字符位置 = 编辑发生的源码位置
-      function findFirstDiffPos(a, b) {
-        const len = Math.min(a.length, b.length);
-        let i = 0;
-        while (i < len && a.charCodeAt(i) === b.charCodeAt(i)) i++;
-        return i;
-      }
-
-      // Block 级定位:按 \n\n 切 markdown 成块,光标落到 DOM 里对应那块开头
-      // 牺牲块内列精度,换取在引用块/列表/代码块/表格/HR 等下的稳定性
-      function placeCursorAtSourcePos(sourcePos, sourceContent) {
-        const editorEl = getEditorEl();
-        if (!editorEl) return false;
-
-        // 找到 sourcePos 属于第几个 markdown block
-        let blockIdx = 0;
-        let blockStart = 0;
-        let pos = 0;
-        while (pos < sourceContent.length) {
-          let nextBreak = sourceContent.indexOf('\n\n', pos);
-          if (nextBreak === -1) nextBreak = sourceContent.length;
-          if (sourcePos >= pos && sourcePos <= nextBreak) {
-            blockStart = pos;
-            break;
+      // 撤销/重做后光标落在"变化处":比对切换前后的可见全文 (按单元插 \n 分隔),
+      // 只用公共前缀 p 定位变化起点 (前缀不受文档末尾块渲染态影响;后缀会被末尾噪声污染)。
+      // 删 → 落 p (删除点);插入 → 落 p+插入量。先同步试,没成 (DOM 没就绪) 下一帧兜底。
+      const restoreCaret = (fromVis, fromMd, toMd) => {
+        const place = () => {
+          const toVis = getVisText();
+          let p = 0;
+          const minLen = Math.min(fromVis.length, toVis.length);
+          while (p < minLen && fromVis.charCodeAt(p) === toVis.charCodeAt(p)) p++;
+          // markdown 变化起点:不依赖 DOM 渲染态,绝对可靠,用作"裁判"
+          let mp = 0;
+          const mml = Math.min(fromMd.length, toMd.length);
+          while (mp < mml && fromMd.charCodeAt(mp) === toMd.charCodeAt(mp)) mp++;
+          if (fromVis !== toVis) {
+            const target = p + Math.max(0, toVis.length - fromVis.length);
+            // 裁判:可见落点相对位置 远超 markdown 变化相对位置 → 可见 diff 被"末尾块渲染
+            // 不稳"的噪声带偏 (典型:链接/盲区编辑,变化没反映、只剩末尾假差异) → 改走块定位。
+            const visRatio = target / Math.max(1, toVis.length);
+            const mdRatio = mp / Math.max(1, toMd.length);
+            if (visRatio - mdRatio > 0.25) return placeCaretAtChangedBlock(fromMd, toMd);
+            return placeCaretAtVisOffset(target);
           }
-          pos = nextBreak + 2;
-          blockIdx++;
-        }
-        const colInBlock = sourcePos - blockStart;
-
-        // 找 DOM 里对应那个 block (top-level child of editor)
-        const blocks = Array.from(editorEl.children);
-        const targetBlock = blocks[blockIdx] || blocks[blocks.length - 1];
-        if (!targetBlock) return false;
-
-        // 在 block 内走文本节点找位置 (跳过行首列表/引用块/有序列表标记和 \n)
-        let walkedSource = 0;
-        const blockSource = sourceContent.slice(blockStart, sourcePos + 100);
-        const walker = document.createTreeWalker(targetBlock, NodeFilter.SHOW_TEXT);
-        let node;
-        let lastNode = null;
-        let lastDomI = 0;
-        while ((node = walker.nextNode())) {
-          const text = node.textContent;
-          let domI = 0;
-          while (domI < text.length && walkedSource < colInBlock) {
-            if (blockSource[walkedSource] === '\n') { walkedSource++; continue; }
-            const isLineStart = walkedSource === 0 || blockSource[walkedSource - 1] === '\n';
-            if (isLineStart) {
-              if (blockSource[walkedSource] === '>' && blockSource[walkedSource + 1] === ' ') { walkedSource += 2; continue; }
-              if ((blockSource[walkedSource] === '-' || blockSource[walkedSource] === '*' || blockSource[walkedSource] === '+') && blockSource[walkedSource + 1] === ' ') { walkedSource += 2; continue; }
-              let j = walkedSource;
-              while (j < blockSource.length && blockSource.charCodeAt(j) >= 48 && blockSource.charCodeAt(j) <= 57) j++;
-              if (j > walkedSource && blockSource[j] === '.' && blockSource[j + 1] === ' ') { walkedSource = j + 2; continue; }
-            }
-            if (blockSource[walkedSource] === text[domI]) {
-              walkedSource++; domI++;
-            } else {
-              domI++;
-            }
-          }
-          if (walkedSource >= colInBlock) {
-            placeRangeAt(node, domI);
-            return true;
-          }
-          lastNode = node;
-          lastDomI = text.length;
-        }
-        if (lastNode) { placeRangeAt(lastNode, lastDomI); return true; }
-        return false;
-      }
-
-      function placeRangeAt(node, domOffset) {
-        try {
-          const range = document.createRange();
-          range.setStart(node, Math.min(domOffset, node.textContent.length));
-          range.collapse(true);
-          const sel = window.getSelection();
-          sel.removeAllRanges();
-          sel.addRange(range);
-          focusEditable();
-          if (node.parentElement && node.parentElement.scrollIntoView) {
-            node.parentElement.scrollIntoView({ block: 'center', behavior: 'instant' });
-          }
-          // 光标所在的 .vditor-ir__node 强制加 --expand,显示 markdown 源符号 (## ** 等)
-          // 因为 vditor 不会因为我们手动设光标就自动展开
-          const startEl = node.nodeType === 1 ? node : node.parentElement;
-          const irNode = startEl?.closest('.vditor-ir__node');
-          if (irNode) {
-            document.querySelectorAll('.vditor-ir__node--expand').forEach(n => {
-              if (n !== irNode) n.classList.remove('vditor-ir__node--expand');
-            });
-            irNode.classList.add('vditor-ir__node--expand');
-          }
-        } catch { }
-      }
-
-      const restoreAfterSetValue = (sourcePos, sourceContent) => {
-        // 只放一次,多次调用会跟 vditor 内部 expand 逻辑打架把光标搞回原点
-        setTimeout(() => placeCursorAtSourcePos(sourcePos, sourceContent), 120);
+          // 可见文字没变 (变化在 marker/preview 盲区,如 URL/公式),按块定位
+          return placeCaretAtChangedBlock(fromMd, toMd);
+        };
+        if (!place()) requestAnimationFrame(place);
       };
 
       doCustomUndo = () => {
         if (undoStack.length === 0) return;
-        const prevContent = undoStack.pop();
-        const editPos = findFirstDiffPos(currentSavedContent, prevContent);
-        redoStack.push(currentSavedContent);
-        currentSavedContent = prevContent;
-        safeSetValue(prevContent);
-        handler.emit("save", prevContent);
-        restoreAfterSetValue(editPos, prevContent);
+        const item = undoStack.pop();
+        const fromMd = currentSavedContent, fromVis = getVisText();   // 切换前的内容/可见全文
+        redoStack.push({ content: fromMd });
+        currentSavedContent = item.content;
+        safeSetValue(item.content);
+        handler.emit("save", item.content);
+        restoreCaret(fromVis, fromMd, item.content);
       };
       doCustomRedo = () => {
         if (redoStack.length === 0) return;
-        const nextContent = redoStack.pop();
-        const editPos = findFirstDiffPos(currentSavedContent, nextContent);
-        undoStack.push(currentSavedContent);
-        currentSavedContent = nextContent;
-        safeSetValue(nextContent);
-        handler.emit("save", nextContent);
-        restoreAfterSetValue(editPos, nextContent);
+        const item = redoStack.pop();
+        const fromMd = currentSavedContent, fromVis = getVisText();
+        undoStack.push({ content: fromMd });
+        currentSavedContent = item.content;
+        safeSetValue(item.content);
+        handler.emit("save", item.content);
+        restoreCaret(fromVis, fromMd, item.content);
       };
     }
   })

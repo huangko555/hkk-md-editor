@@ -93,8 +93,8 @@
 					},
 					"hkk-md-editor.openOutline": {
 						"type": "boolean",
-						"default": true,
-						"description": "默认打开 markdown 大纲。"
+						"default": false,
+						"description": "默认打开 vditor 原生大纲(已由自定义 TOC 替代,默认关闭以免重复)。"
 					},
 					"hkk-md-editor.hideToolbar": {
 						"type": "boolean",

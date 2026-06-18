@@ -31,9 +31,9 @@ const safeSetValue = (content) => {
 
 ### 1.3 vditor IR 模式自带的 undo/redo **完全不工作**
 - **现象**：Ctrl+Z 没反应，toolbar 上的 undo 按钮始终灰色，从来不激活
-- **根因**：vditor 库的 IR 模式 undo 实现有 bug(可能就是 #1.2 那个 addCaret 链路坏掉的副作用)
-- **应对**：**在 webview 自维护 undoStack/redoStack**(见 `resource/vditor/index.js`)。`input` 回调里把旧 content 压栈，Ctrl+Z keydown 弹栈 + `safeSetValue` + 重新定位光标
-- **wysiwyg 模式的 vditor undo 是好的**，但切回 wysiwyg 就失去 IR 的"点行看 md 源符号"特性，我们选了 IR
+- **根因 (后来实测精确定位)**：IR 撤销栈**永远是空**。`undo.addToUndoStack` 第一步调 `addCaret(vditor, true)`，而 `addCaret` 内部遍历克隆 DOM 时抛 `Cannot read properties of null (reading 'classList')` → 整个入栈失败 → 栈空 → `undo()` 是空操作。是 vditor **库内 bug**，`vditor.js` minified **不可改**，复用无望。(诊断方法见 §5.1:临时挂 `Ctrl+Alt+Z/S` 直接调 `editor.vditor.undo.*` + 打 `err.stack`)
+- **应对**：**在 webview 自维护 undoStack/redoStack** + 自己定位光标 (见 §7 完整方案)
+- **wysiwyg 模式的 vditor undo 是好的**，但切回 wysiwyg 就失去 IR 的"点行看 md 源符号"特性，我们选了 IR 
 
 ### 1.4 vditor **同时建 IR + wysiwyg + SV 三套 DOM**，只显示当前 mode 的
 - **现象**：`document.querySelector('.vditor-reset')` 返回的不是当前可见模式的那个，光标设到了**隐藏的 SV 模式 DOM** 里，用户看不见
@@ -166,11 +166,45 @@ function getVisibleMode() {
 - 多个 markdown 编辑器 (vditor、Typora 一脉) 用 `<wbr>` 这个 HTML 标签当光标位置标记
 - 在 HTML 里 `<wbr>` 是"建议换行点"，可以插入任何文字流但不显示
 - vditor setValue **不识别** wbr，但 vditor 内部 DOM 操作时用 (`insertAdjacentHTML("beforeend", "<wbr>")`)
-- **想用就要在 DOM 层操作**，不是 markdown 层
+ - **想用就要在 DOM 层操作**，不是 markdown 层
 
 ---
 
-## 收尾时回头看的待办 (都已存项目记忆)
+## 7. 撤销/重做光标定位 — 从底层重做 (B' 方案，已定稿)
+
+自维护 undo 栈好做 (存 markdown 快照 + setValue 回退)；**真正难的是撤销后把光标放回"刚才改动的地方"**。前后试了几代，记录踩坑：
+
+### 7.1 病根：别用"markdown 源码偏移 ↔ DOM 位置"双向映射
+- 历史方案：diff 两份 markdown 快照得到源码偏移，再走 TreeWalker 把偏移映射回 DOM。**两层映射都不可靠**——vditor input 后会重排空白 (§2.2)、IR marker 显隐让字符数对不上 (§2.1)。光标稳定跳到无关位置。
+- **正解：换坐标系**。不碰 markdown，只在 **"可见文字"** 这一个坐标系里做：`getVisText()` 遍历可见 IR 文本，**跳过** marker / preview / 代码围栏，**保留** `marker--pre` 里的代码内容 (那是可编辑正文)。撤销/重做时比对切换前后两份可见文字，定位变化处。
+
+### 7.2 只用"公共前缀"定位，别用后缀
+- 想当然用 `公共前缀 p` + `公共后缀 s` 框出变化区 `[p, len-s]`。**后缀是坑**：**第一次撤销**时文档末尾的块 (引用定义 `[x]: url` 等) 渲染态还没稳，`fromVis`/`toVis` 末尾有无关差异，后缀只匹配几十字符就断 → 算出的"变化末尾"飙到文档尾 → 光标跳末尾。撤销一次后 DOM 稳了就好，所以表现为"第一次必触发、之后正常"。
+- **修**：只用前缀 p (前缀不受末尾影响)。删除→落 p (删除点)；插入→落 `p + 长度差`。
+
+### 7.3 块/单元边界二义：要插分隔符
+- 可见文字把各块/格无缝拼接，**"上段末尾"和"下段开头"偏移重合** → 句尾撤销落到下段首、句首落到上段尾、表格里落到上一格尾。单用 `>=`/`>` 必然顾此失彼。
+- **修**：`getVisText` 与落点函数**用同一套**，在"单元"(td/th、li、顶层块) 边界插 `\n` 分隔，边界偏移不再重合，各归各位。`blockUnitOf()` 判定单元归属。
+
+### 7.4 marker/preview 盲区 + markdown 当裁判
+- 链接 URL、公式、图片这类，可编辑内容在 marker/preview 区，`getVisText` 看不见 → 编辑改了 markdown 但可见文字没变 (`visEqual`)。光标无从精确定位。
+- **裁判**：markdown 不依赖 DOM 渲染态，绝对可靠。算"可见落点相对位置"vs"markdown 变化相对位置"，若可见落点明显靠后 (差 >25%) → 判定被噪声带偏 → 改走**块定位** `placeCaretAtChangedBlock`：落进块内第一个 `.vditor-ir__node`，`placeRangeAt` 会自动给它加 `--expand` (顺带解决链接撤销"不展开")。
+- 盲区是 B' 的**固有边界**：这类只能落到块/节点附近，做不到字符级精确。
+
+### 7.5 撤销粒度 = vditor 的 `undoDelay`，默认 800ms 太长
+- 我们的 `input` 回调 = vditor 的入栈信号，受 `options.undoDelay` (默认 **800ms**) 时间防抖，**只看时间不看位置**。800ms 内分别编辑的多处 (哪怕跨块) 被合并成**一个**撤销步 → 一次撤销全没。
+- **修**：传 `undoDelay: 200`。人"编辑一处→移动→编辑另一处"的间隔通常 >200ms，自然分界；连续打字 (<200ms) 仍合并成一步 (这是对的)。仍有残留：同段落极快多处编辑会被合并，vditor 层面拆不开 (要绕开自建按键级 undo，不划算)。
+
+### 7.6 闪烁：同步定位 + 单次 rAF 兜底
+- 历史用 `setTimeout(…, 120)` 等 DOM 重建，导致 IR 节点折叠态停 120ms 才展开 → 闪。
+- **修**：setValue 后**同步**先试一次定位，失败才 `requestAnimationFrame` 兜底一次 (单次，§5.2 说过多次重试会跟 vditor expand 打架)。
+
+### 7.7 代码块/数学块"输入即丢内容"跟撤销无关
+- 现象：在代码块/数学块里打字，内容偶尔被清空。**git stash 把全部改动藏起、退回接手前版本对照，照样丢** → 实锤是 **vditor IR 固有 bug** (LESSONS §1.1 同源)，与撤销光标方案完全无关。换光标方案救不了 (它发生在输入环节，不是撤销环节)。列为独立待办 B2。
+
+---
+
+## 收尾时回头看的待办 (都已存项目记忆) 
 
 详见 `~/.claude/projects/.../memory/`：
 - 代码块编辑浮窗亮蓝色压不下来 (`project_pending_codeblock_popup.md`)
