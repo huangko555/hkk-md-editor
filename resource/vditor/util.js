@@ -199,14 +199,67 @@ export const openLink = () => {
         // 滚动有偏差
         handler.emit("scroll", { scrollTop: e.target.scrollTop - 70 })
     });
+    // IR 模式链接点击处理 (分两种状态)
+    //   未展开:普通点击 → 展开 (绕开 vditor 内部对 link 的特殊不展开行为)
+    //          Ctrl + 点击 → 外部跳转
+    //   已展开:普通点击 → 完全放手,让 vditor 自然处理 (光标放置 + 文字编辑)
+    //          Ctrl + 点击 → 外部跳转
     document.querySelector(".vditor-ir").addEventListener('click', e => {
         let ele = e.target;
-        if (ele.classList.contains('vditor-ir__link')) {
-            ele = e.target.nextElementSibling?.nextElementSibling?.nextElementSibling
+        const isLink = ele.classList.contains('vditor-ir__link') || ele.tagName === 'A';
+        if (!isLink) return;
+
+        const linkNode = ele.classList.contains('vditor-ir__node') ? ele : ele.closest('.vditor-ir__node');
+        const isExpanded = linkNode?.classList.contains('vditor-ir__node--expand');
+
+        // Ctrl/Cmd:任何状态都跳转外部
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            let urlEle = ele;
+            if (urlEle.classList.contains('vditor-ir__link')) {
+                urlEle = urlEle.nextElementSibling?.nextElementSibling?.nextElementSibling;
+            }
+            if (urlEle?.classList.contains('vditor-ir__marker--link')) {
+                handler.emit("openLink", urlEle.textContent);
+            } else if (ele.tagName === 'A' && ele.href) {
+                handler.emit("openLink", ele.href);
+            }
+            return;
         }
-        if (ele.classList.contains('vditor-ir__marker--link')) {
-            handler.emit("openLink", ele.textContent)
+
+        // 已展开:让 vditor 自然处理光标 (用户在编辑状态),什么都不动
+        if (isExpanded) return;
+
+        // 未展开:阻止跳转 + 手动展开
+        e.preventDefault();
+        if (!linkNode) return;
+
+        // 把光标放到点击位置
+        let pos = null;
+        if (document.caretPositionFromPoint) {
+            const p = document.caretPositionFromPoint(e.clientX, e.clientY);
+            if (p) pos = { node: p.offsetNode, offset: p.offset };
+        } else if (document.caretRangeFromPoint) {
+            const r = document.caretRangeFromPoint(e.clientX, e.clientY);
+            if (r) pos = { node: r.startContainer, offset: r.startOffset };
         }
+        if (pos) {
+            const range = document.createRange();
+            range.setStart(pos.node, pos.offset);
+            range.collapse(true);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+
+        // 延迟 50ms 后强制加 --expand (等 vditor 自己的清理逻辑跑完)
+        setTimeout(() => {
+            document.querySelectorAll('.vditor-ir__node--expand').forEach(n => {
+                if (n !== linkNode) n.classList.remove('vditor-ir__node--expand');
+            });
+            linkNode.classList.add('vditor-ir__node--expand');
+        }, 50);
     });
 }
 

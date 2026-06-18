@@ -75,10 +75,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         let lastSyncedText = normalize(content);
         let conflictNotified = false;
 
-        const handleExternalText = (newText: string) => {
+        const handleExternalText = (newText: string, force = false) => {
             const normalized = normalize(newText);
             if (normalized === lastSyncedText) return; // 自身回写,跳过
-            if (document.isDirty) {
+            // force=true 用于 VS Code 内部撤销/重做,不算外部改动,绕开 dirty 锁强制同步
+            if (!force && document.isDirty) {
                 // 有未保存草稿 → 不覆盖,只弹一次警告;保存时由 VS Code 原生对话框做最终裁决
                 if (!conflictNotified) {
                     conflictNotified = true;
@@ -86,7 +87,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
                 }
                 return;
             }
-            // 干净状态:静默更新 webview 内容
+            // 干净状态 (或撤销/重做):静默更新 webview 内容
             conflictNotified = false;
             content = newText;
             lastSyncedText = normalized;
@@ -106,9 +107,12 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             this.updateCount(content)
             this.countStatus.show()
         }).on("externalUpdate", e => {
-            // VS Code 内文档变化:含我们自己 applyEdit 引起的,以及干净时 VS Code 自动重载外部改动
+            // VS Code 内文档变化:含我们自己 applyEdit 引起的,以及干净时 VS Code 自动重载外部改动,
+            // 以及用户在 webview/VS Code 里按 Ctrl+Z/Y 触发的撤销/重做
             if (lastManualSaveTime && Date.now() - lastManualSaveTime < 800) return;
-            handleExternalText(e.document.getText());
+            const isUndoRedo = e.reason === vscode.TextDocumentChangeReason.Undo
+                || e.reason === vscode.TextDocumentChangeReason.Redo;
+            handleExternalText(e.document.getText(), isUndoRedo);
         }).on("fileChange", async () => {
             // 磁盘文件变化:即使 VS Code 没自动重载(dirty 时会拒绝),这里也会收到
             if (lastManualSaveTime && Date.now() - lastManualSaveTime < 800) return;
@@ -180,6 +184,13 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             config.update("openOutline", enable, true)
         }).on('developerTool', () => {
             vscode.commands.executeCommand('workbench.action.toggleDevTools')
+        }).on('debug-log', (msg) => {
+            // 把 webview 的诊断信息追加到本地文件,方便外部读取
+            try {
+                const debugPath = `${this.extensionPath}/test-samples/hkk-debug.log`;
+                const line = `[${new Date().toISOString()}] ${typeof msg === 'string' ? msg : JSON.stringify(msg)}\n`;
+                require('fs').appendFileSync(debugPath, line);
+            } catch { /* test-samples 不存在就跳过 */ }
         })
 
         // ── 1 秒轮询兜底(zhfix / Obsidian 等"临时文件+原子改名"会绕开 FileSystemWatcher)──

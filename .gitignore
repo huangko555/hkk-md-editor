@@ -13,4 +13,7 @@ Thumbs.db
 # 本地测试样本(不参与版本控制)
 test-samples/
 
+# 临时开发进度跟踪文档 (用于跨对话保留上下文,收尾时删)
+PROGRESS.md
+
 # 注意:package-lock.json 故意不忽略,跨机开发需要它来锁版本
