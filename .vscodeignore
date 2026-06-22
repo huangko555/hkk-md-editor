@@ -9,6 +9,9 @@ src/**
 build.js
 yarn.lock
 package-lock.json
-.cursorrules
-README-CN.md
-README-TW.md
+test-samples/**
+image/**
+PROGRESS.md
+LESSONS.md
+**/*.vsix
+template/**
