@@ -299,7 +299,7 @@ body .vditor-toolbar__divider {
     color: #cccccc;
     border: none;
     border-radius: 5px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.85), 0 0 3px rgba(0, 0, 0, 0.7);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.25), 0 0 2px rgba(0, 0, 0, 0.2);
     font-size: 12px;
     line-height: 1.4;
     user-select: none;
@@ -679,9 +679,9 @@ body.hkk-toc-fixed-open .vditor-content {
     padding: 0;
 }
 .hkk-toc-tree .hkk-toc-tree {
-    margin-left: 20px;           /* 让虚线刚好落在父节点首字符左下方 (fold 14 + link padding 6) */
-    padding-left: 6px;           /* 虚线到子项 fold 的间隙 */
-    border-left: 1px dashed rgba(255, 255, 255, 0.17) !important;
+    margin-left: 20px;           /* 让竖线刚好落在父节点首字符左下方 (fold 14 + link padding 6) */
+    padding-left: 6px;           /* 竖线到子项 fold 的间隙 */
+    border-left: 1px solid rgba(255, 255, 255, 0.10) !important;
     /* base.css 有 *:not(.katex,.katex *){border-color:var(--ext-border-color)!important} 全局压制,必须 !important */
 }
 

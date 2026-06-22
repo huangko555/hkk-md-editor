@@ -5,7 +5,11 @@ const URI = require("vscode").Uri
 const markdownIt = require("markdown-it")
 const markdownItCheckbox = require("markdown-it-checkbox")
 const markdownItKatex = require("./ext/markdown-it-katex")
-const markdownItMermaid = require("./ext/markdown-it-mermaid").default;
+// mermaid 是 ESM-only 包,build.js 的 createLib 不能正确 bundle 它的 exports 入口 →
+// 运行时 require('mermaid') 失败会让整个 extension activation 挂掉。包 try/catch:
+// 加载失败时 PDF 导出里 mermaid 块降级为不渲染,不阻塞主流程
+let markdownItMermaid = null;
+try { markdownItMermaid = require("./ext/markdown-it-mermaid").default; } catch (e) { /* mermaid 不可用,降级 */ }
 const markdownItPlantuml = require("markdown-it-plantuml")
 const markdownItToc = require("markdown-it-toc-done-right")
 const markdownItAnchor = require("markdown-it-anchor")
@@ -113,7 +117,7 @@ function convertMarkdownToHtml(filename, type, text, config) {
       .use(markdownItToc)
       .use(markdownItKatex)
       .use(markdownItPlantuml)
-      .use(markdownItMermaid)
+    if (markdownItMermaid) md.use(markdownItMermaid)
 
     return md.render(text)
 
