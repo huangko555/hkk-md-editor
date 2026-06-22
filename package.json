@@ -146,8 +146,7 @@
 							"ja_JP",
 							"ko_KR",
 							"ru_RU",
-							"zh_CN",
-							"zh_TW"
+							"zh_CN"
 						],
 						"default": "zh_CN",
 						"description": "编辑器语言。"

@@ -420,16 +420,9 @@ function matchShortcut(hotkey, event) {
 // const keys = ['"', "{", "("];
 const keyCodes = [222, 219, 57];
 export const autoSymbol = (handler, editor, config) => {
-    let _exec = document.execCommand.bind(document)
-    document.execCommand = (cmd, ...args) => {
-        if (cmd === 'delete') {
-            setTimeout(() => {
-                return _exec(cmd, ...args)
-            })
-        } else {
-            return _exec(cmd, ...args)
-        }
-    }
+    // 移除原 office viewer 对 execCommand('delete') 的 setTimeout 异步劫持:
+    // IR 模式下 vditor 处理代码块/数学块输入时同步用 delete + insertText 组合,
+    // 异步化会让"先删后插"乱序 → 代码行丢失。wysiwyg 模式没观察到副作用。
     window.addEventListener('keydown', async e => {
         if (matchShortcut('^⌘e', e) || matchShortcut('^!e', e)) {
             e.stopPropagation();

@@ -2,6 +2,8 @@
 // 监听光标变化,光标进入特定块 (链接 / 代码块 / 表格 / 图片 / 数学 / Mermaid / 任务) 时,
 // 在块上方浮出小菜单,显示该块的操作按钮 (vditor wysiwyg 模式自带 popover,IR 没有,这里补)
 
+import { openBlockEditor } from './block-editor.js';
+
 let popover = null;
 let currentTarget = null;
 let currentType = null;
@@ -19,21 +21,121 @@ function getEditorEl() {
   return null;
 }
 
+// 自定义代码块复制按钮:vditor 原生 .vditor-copy 在 webview 里 execCommand 失效,
+// 且 IR 模式下 mousedown 会把光标放进代码块触发节点 expand。直接做一个独立浮动按钮,
+// 跟随鼠标当前 hover 的代码块,定位到右上角;mousedown preventDefault 不抢焦点。
+// 配合 CSS 把原生 .vditor-copy 隐藏。
+let codeCopyBtn = null;
+let codeCopyTarget = null;
+let codeCopyHideTimer = 0;
+
+function installCodeCopyButton() {
+  codeCopyBtn = document.createElement('button');
+  codeCopyBtn.type = 'button';
+  codeCopyBtn.className = 'hkk-code-copy hkk-code-copy--hidden';
+  codeCopyBtn.setAttribute('aria-label', '复制代码');
+  codeCopyBtn.innerHTML = '<svg><use xlink:href="#vditor-icon-copy"></use></svg>';
+  document.body.appendChild(codeCopyBtn);
+
+  codeCopyBtn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  codeCopyBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!codeCopyTarget || !document.contains(codeCopyTarget)) return;
+    const text = extractCodeText(codeCopyTarget);
+    if (!text) return;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+    } else {
+      fallbackCopy(text);
+    }
+    codeCopyBtn.setAttribute('aria-label', '已复制');
+    setTimeout(() => codeCopyBtn?.setAttribute('aria-label', '复制代码'), 1500);
+  });
+
+  // hover 跟随:鼠标进入代码块 → 显示按钮并定位;离开后短延迟隐藏,允许移到按钮上
+  document.addEventListener('mouseover', (e) => {
+    const t = e.target;
+    if (t === codeCopyBtn || (t.nodeType === 1 && codeCopyBtn.contains(t))) {
+      clearTimeout(codeCopyHideTimer);
+      return;
+    }
+    const block = t.nodeType === 1 && t.closest
+      ? t.closest('.vditor-ir__node[data-type="code-block"], pre[class*="language-"]')
+      : null;
+    if (block) {
+      clearTimeout(codeCopyHideTimer);
+      codeCopyTarget = block;
+      positionCodeCopyBtn(block);
+      codeCopyBtn.classList.remove('hkk-code-copy--hidden');
+    } else {
+      clearTimeout(codeCopyHideTimer);
+      codeCopyHideTimer = setTimeout(() => {
+        codeCopyBtn.classList.add('hkk-code-copy--hidden');
+        codeCopyTarget = null;
+      }, 120);
+    }
+  });
+}
+
+function positionCodeCopyBtn(block) {
+  const rect = block.getBoundingClientRect();
+  // 代码块滚出视口 → 隐藏
+  if (rect.bottom < 0 || rect.top > window.innerHeight) {
+    codeCopyBtn.classList.add('hkk-code-copy--hidden');
+    return;
+  }
+  codeCopyBtn.style.top = (rect.top + 30) + 'px';
+  codeCopyBtn.style.left = (rect.right - 36) + 'px';
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch {}
+  document.body.removeChild(ta);
+}
+
 export function initPopover() {
   if (popover) return;
+
+  installCodeCopyButton();
 
   popover = document.createElement('div');
   popover.id = 'hkk-popover';
   popover.className = 'hkk-popover hkk-popover--hidden';
   document.body.appendChild(popover);
 
-  // 点 popover 内部不要触发隐藏 (短暂屏蔽)
-  popover.addEventListener('mousedown', () => { suppressUntil = Date.now() + 300; });
+  // 点 popover 内部不要触发隐藏 (短暂屏蔽);按钮 mousedown 阻止抢焦点
+  popover.addEventListener('mousedown', (e) => {
+    suppressUntil = Date.now() + 300;
+    if (e.target.closest('[data-action]')) e.preventDefault();
+  });
+  // 事件委托:popover 内所有 [data-action] 共用一个 click 监听 (避免 render 时反复绑解绑)
+  popover.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn || !currentCtx) return;
+    handleAction(currentCtx, btn.dataset.action, e);
+  });
 
   document.addEventListener('selectionchange', schedule);
   document.addEventListener('mouseup', schedule);
   document.addEventListener('keyup', schedule);
   window.addEventListener('resize', schedule);
+  // 焦点切到编辑器和 popover 之外 → 隐藏 (失焦自动收起)
+  document.addEventListener('focusin', (e) => {
+    const editor = getEditorEl();
+    if (!editor) return;
+    if (editor.contains(e.target) || popover.contains(e.target)) return;
+    hide();
+  });
   // 编辑器滚动时重新定位
   setTimeout(() => {
     const editor = getEditorEl();
@@ -66,8 +168,10 @@ function update() {
   const ctx = detectContext(el);
   if (!ctx) { hide(); return; }
 
-  // 光标在同一 target + 同一 cell (表格特有) 时不重新 render
-  if (currentTarget === ctx.target && currentType === ctx.type && currentCell === (ctx.cell || null)) {
+  // 光标在同一 target 内 (含表格跨 cell):只更新 cell + reposition,不重渲 innerHTML
+  if (currentTarget === ctx.target && currentType === ctx.type) {
+    currentCell = ctx.cell || null;
+    currentCtx = ctx;
     position(ctx);
     return;
   }
@@ -135,7 +239,6 @@ function render(ctx) {
     case 'html-block': popover.innerHTML = renderHtmlBlock(ctx); break;
     default: popover.innerHTML = '';
   }
-  bindActions(ctx);
 }
 
 // 用 vditor 自带的 SVG symbol 做图标 (定义在 material.js,DOM 加载时已注入)
@@ -156,6 +259,7 @@ function renderCodeBlock(ctx) {
   return `
     <span class="hkk-popover__label">代码块</span>
     <span class="hkk-popover__hint">${lang ? escapeHtml(lang) : '(无语言)'}</span>
+    <button type="button" class="hkk-popover__btn" data-action="edit-code" title="编辑代码 (打开独立编辑器)">${ICON('edit')}</button>
     <button type="button" class="hkk-popover__btn" data-action="copy-code" title="复制代码">${ICON('copy')}</button>
   `;
 }
@@ -201,6 +305,7 @@ function renderMathBlock(ctx) {
   return `
     <span class="hkk-popover__label">数学块</span>
     <span class="hkk-popover__hint">$$ ... $$</span>
+    <button type="button" class="hkk-popover__btn" data-action="edit-math" title="编辑公式 (打开独立编辑器)">${ICON('edit')}</button>
     <button type="button" class="hkk-popover__btn" data-action="copy-math" title="复制公式">${ICON('copy')}</button>
   `;
 }
@@ -226,14 +331,6 @@ function renderHtmlBlock(ctx) {
   `;
 }
 
-function bindActions(ctx) {
-  popover.querySelectorAll('[data-action]').forEach(el => {
-    // mousedown preventDefault 阻止按钮抢焦点 (保住编辑器光标不丢)
-    el.addEventListener('mousedown', e => e.preventDefault());
-    el.addEventListener('click', e => handleAction(ctx, el.dataset.action, e));
-  });
-}
-
 function handleAction(ctx, action, e) {
   e.stopPropagation();
   e.preventDefault();
@@ -245,11 +342,15 @@ function handleAction(ctx, action, e) {
         break;
       case 'code-block':
         if (action === 'copy-code') copyText(extractCodeText(ctx.target));
+        if (action === 'edit-code') openBlockEditor('code', ctx.target);
         break;
       case 'image':
         if (action === 'copy-src') copyText(ctx.target.getAttribute('src') || '');
         break;
       case 'math-block':
+        if (action === 'edit-math') openBlockEditor('math', ctx.target);
+        if (action === 'copy-math') copyText(ctx.target.textContent.replace(/\$/g, ''));
+        break;
       case 'math-inline':
         if (action === 'copy-math') copyText(ctx.target.textContent.replace(/\$/g, ''));
         break;
@@ -472,6 +573,11 @@ function position(ctx) {
 function positionDefault(target) {
   if (!target?.getBoundingClientRect) return;
   const rect = target.getBoundingClientRect();
+  // target 完全滚出视口 → hide (与表格一致)
+  if (rect.bottom < 0 || rect.top > window.innerHeight) {
+    hide();
+    return;
+  }
   const pRect = popover.getBoundingClientRect();
   let top = rect.top - pRect.height - 6;
   let left = rect.left;                            // 左对齐 target
@@ -482,35 +588,28 @@ function positionDefault(target) {
   popover.style.left = left + 'px';
 }
 
-// 表格专用定位:跟随光标所在行 (不是整个表格),避开"表头/表尾固定位置"的远距离问题
+// 表格专用定位
 //  - 折叠态 (…): 光标行的【左外侧】,不遮挡表格
-//  - 展开态: 光标【上一行的最左边】,遮挡上一行 (留给用户操作)
+//  - 展开态: 当前单元格的左上方 (左对齐 cell.left, 位于 cell 上方; 顶部塞不下时翻到下方)
 function positionTable(cell) {
   const row = cell?.parentElement;
   if (!row?.getBoundingClientRect) return;
+  // cell 完全滚出视口 → 直接 hide (清状态,不自动恢复;再次出现需光标动作触发)
+  const cellRect = cell.getBoundingClientRect();
+  if (cellRect.bottom < 0 || cellRect.top > window.innerHeight) {
+    hide();
+    return;
+  }
   const rowRect = row.getBoundingClientRect();
   const pRect = popover.getBoundingClientRect();
 
   let top, left;
   if (tableExpanded) {
-    // 上一行的位置 = 上一行的 top + 上一行的 left
-    let prevRow = row.previousElementSibling;
-    if (!prevRow && row.parentElement) {
-      // 跨 thead/tbody:取 thead/tbody 同级 section 的最后一行
-      const section = row.parentElement;
-      const prevSection = section.previousElementSibling;
-      if (prevSection && prevSection.children.length > 0) {
-        prevRow = prevSection.children[prevSection.children.length - 1];
-      }
-    }
-    if (prevRow?.getBoundingClientRect) {
-      const prevRect = prevRow.getBoundingClientRect();
-      top = prevRect.top;
-      left = prevRect.left;
-    } else {
-      // 没有上一行 (光标在表格首行) → 放当前行上方
-      top = rowRect.top - pRect.height - 4;
-      left = rowRect.left;
+    left = cellRect.left;
+    top = cellRect.top - pRect.height - 4;
+    if (top < 8) {
+      // 上方塞不下 → 翻到 cell 下方
+      top = cellRect.bottom + 4;
     }
   } else {
     // 折叠态:行的左外侧,不遮挡表格

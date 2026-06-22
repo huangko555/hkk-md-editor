@@ -2,6 +2,7 @@ import { openLink, hotKeys, imageParser, getToolbar, autoSymbol, onToolbarClick,
 import { initTOC } from "./toc.js";
 import { initSearch } from "./search.js";
 import { initPopover } from "./popover.js";
+import { initBlockEditor } from "./block-editor.js";
 
 let state;
 function loadConfigs() {
@@ -273,6 +274,7 @@ handler.on("open", async (md) => {
       initTOC()
       initSearch()
       initPopover()
+      initBlockEditor()
 
       // setValue 前先清空 selection + blur,防止 vditor 内部 addCaret 因 stale Range 崩溃
       const safeSetValue = (content) => {
@@ -282,6 +284,18 @@ handler.on("open", async (md) => {
           if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
         } catch { }
         try { editor.setValue(content); } catch (e) { dlog('[hkk] setValue threw:', String(e)); }
+      };
+
+      // 给 block-editor.js 用:把一段修改后的 markdown 应用到编辑器,走我们自己的撤销栈
+      window.__hkkEditor = editor;
+      window.__hkkApplyMarkdown = (newMd) => {
+        if (newMd === currentSavedContent) return;
+        undoStack.push({ content: currentSavedContent });
+        if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+        redoStack.length = 0;
+        currentSavedContent = newMd;
+        safeSetValue(newMd);
+        handler.emit("save", newMd);
       };
 
       // 撤销/重做后光标落在"变化处":比对切换前后的可见全文 (按单元插 \n 分隔),

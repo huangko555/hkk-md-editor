@@ -12,6 +12,7 @@
 - **现象**：实现颜色色块预览 (`#hex` 前插彩色圆点)，光标在一个色值内删除一个数字，**整段甚至跨段的 hex 文本全消失**；光标频繁跳到段首
 - **根因**：vditor wysiwyg 是 contenteditable + DOM 即数据模型。我用 `splitText + insertBefore(<span>)` 插入色块时，vditor 的 input 序列化拿到的 DOM 被我"切坏"，回写到 markdown 源时丢字
 - **应对**：**Phase 3.1 撤回**。可能的解法：CSS Custom Highlight API(不动 DOM 只染色)、绕开 wysiwyg 走 vditor SV 模式。详见 `memory/project_pending_color_swatch.md`
+- **注**：`hkk-color-swatch.js` 已在 Phase 4 收尾清理时删除 (它是死代码)，记忆里保留概念，需要时重写
 
 ### 1.2 vditor IR 模式 setValue 会崩 (`addCaret` 报 null.classList)
 - **现象**：`editor.setValue(content)` 后控制台报 `Uncaught TypeError: Cannot read properties of null (reading 'classList')` at `vditor.js: addCaret`
@@ -54,6 +55,26 @@ function getVisibleMode() {
 - **现象**：`.vditor-ir__link` span 上点击中间，IR 节点不会自动加 `--expand` 类
 - **根因**：vditor 内部对 link span 的 click 有特殊处理 (认为用户想跳转，不展开)
 - **应对**：在我们的 click 处理里**主动给 `.vditor-ir__node` 加 `--expand` class**，延迟 50ms 让 vditor 自己的清理逻辑先跑
+
+### 1.6 vditor 原生 `.vditor-copy` 按钮在 VSCode webview 里完全坏
+- **现象**：代码块右上角悬浮的复制图标，点击不复制 (剪贴板空)，且 IR 模式下点击会变成"展开代码块"
+- **根因**：两个独立问题叠加 ——
+  1. vditor 内部用 inline `onclick="...document.execCommand('copy')..."`，在 VSCode webview 沙箱里 `execCommand('copy')` 被拒，静默失败
+  2. IR 模式下 **mousedown 阶段**就把光标放进了代码块 → 触发 `.vditor-ir__node--expand` → click 阶段再阻止已经晚了
+- **应对**：**绕开 vditor 原生按钮**，自己做 ——
+  - CSS 把 `.vditor-copy` 隐藏掉
+  - `document.body` 上挂一个 `.hkk-code-copy` 浮动按钮 (单例)，`mouseover` 跟随当前 hover 的代码块，定位 fixed 到右上角
+  - `mousedown` `preventDefault()` 阻止抢焦点 → IR 节点不展开
+  - `click` 用 `navigator.clipboard.writeText` 现代 API 写剪贴板，fallback 用 textarea + `document.execCommand('copy')` 兜底
+- **教训**：VSCode webview 的 `execCommand('copy'/'cut'/'paste')` 几乎都被拒，有这类需求一律走 Clipboard API。**inline onclick 也跟"先 mousedown 抢光标"竞争**，要拦截操作类按钮，得在 mousedown 就 preventDefault。
+
+### 1.7 IR 模式代码块/数学块行内输入丢字 (vditor 序列化 bug，实锤)
+- **现象**：在代码块或 `$$ ... $$` 数学块里打字、删字，内容会被吞——有时尾巴丢几个字，有时整行甚至跨行消失
+- **早期误判**：LESSONS §7.7 旧版写"git stash 退回接手前对照，照样丢"。**这判断是错的**——接手前用的是 wysiwyg 模式，stash 同时把 `mode: 'ir'` 也回滚了，等于在对比两个完全不同的内核路径
+- **实锤过程**：开 dlog 在 `input(content)` 回调里 diff 上一次和这一次的 content，发现 vditor 给我们的 markdown **已经丢字** (例：用户在代码块里改数字，序列化结果把同段测试注释 `// ← 在这行改` 整段吞掉)。全程没有 `[update]` 日志 → 不是回环，纯是 vditor IR DOM→markdown 序列化的内部 bug
+- **office viewer 没事**：它用 `mode: 'wysiwyg'`，这个序列化 bug 是 IR 路径独有
+- **应对** (Phase 4 妥协，B2 半解决)：**popover 上加"编辑"按钮 → 弹独立 modal**。modal 里用 `<textarea>` 编辑，完成后定位"DOM 里第 N 个代码块/数学块"对应 markdown 里"第 N 个 ``` / $$"块，整段字符替换 → `safeSetValue`。绕开 vditor IR 的行内编辑路径，代价是失去"行内直接输入"的 wysiwyg 体验
+- **彻底修法 (未做)**：要么换默认 mode 到 wysiwyg (失去 IR 特性)，要么升级 vditor bundle 试新版，要么逐项替换内核。都不便宜
 
 ---
 
@@ -200,7 +221,33 @@ function getVisibleMode() {
 - **修**：setValue 后**同步**先试一次定位，失败才 `requestAnimationFrame` 兜底一次 (单次，§5.2 说过多次重试会跟 vditor expand 打架)。
 
 ### 7.7 代码块/数学块"输入即丢内容"跟撤销无关
-- 现象：在代码块/数学块里打字，内容偶尔被清空。**git stash 把全部改动藏起、退回接手前版本对照，照样丢** → 实锤是 **vditor IR 固有 bug** (LESSONS §1.1 同源)，与撤销光标方案完全无关。换光标方案救不了 (它发生在输入环节，不是撤销环节)。列为独立待办 B2。
+- 现象：在代码块/数学块里打字，内容偶尔被清空
+- **结论已在 Phase 4 实锤更新，详见 §1.7**。简版：确认是 vditor IR 序列化 bug,跟撤销路径无关；改不动内核，改走 popover + modal 妥协。当时这条记录里"git stash 也复现"的判断是错的(stash 把 IR 模式也回滚了，对比对象不对)
+
+---
+
+## 8. Phase 4 的小经验 (浮窗 / 搜索性能)
+
+### 8.1 自定义浮窗 (popover) 的几条小经验
+- **失焦自动隐藏**：document 上挂一个 `focusin`，当 `e.target` 既不在编辑器内、也不在 popover 内，就 `hide()`。`document.body.click` 不够，焦点跳到大纲/工具栏不会触发 click。
+- **滚出视口隐藏**：在 `position()` 入口判 `target.getBoundingClientRect()` 完全离开 viewport 就 `hide()`。否则浮窗会贴边停在视口里"鬼影"。
+- **事件委托代替每次 render 重绑**：popover 内按钮全部用 `[data-action]` 标记,popover 自己挂一个 `click` 委托,render 时只 `innerHTML =` 不再 `addEventListener`。
+- **同 target 内移动只 reposition,不重渲**：例如表格 cell 之间跳,DOM 内容没变，光重写 innerHTML 会让按钮一闪。`update()` 短路条件用 `currentTarget === ctx.target && currentType === ctx.type`,cell 仅作为 reposition 的入参。
+- **mousedown preventDefault 保住编辑器焦点**：popover 按钮按下时必须 `preventDefault()`，否则光标跳到 popover → vditor 那边的 selection 就丢了 → 操作的"当前块"就找不到了。
+
+### 8.2 表格 popover 折叠/展开两态的定位
+- **折叠态(`…` 单按钮)**：贴当前**行**的左外侧，纵向居中行高，不遮挡表格
+- **展开态(完整工具栏)**：贴当前**单元格**的左上方 (`left = cell.left, top = cell.top - h - 4`)，顶不下时翻到 `cell.bottom + 4`
+- 教训：**不要贴"上一行"**——表头时没有上一行、合并单元格时上一行结构不对。直接锚到当前 cell 简单稳定,clamp 兜底就能保证完整显示
+
+### 8.3 搜索卡顿：防抖 + layout thrashing 是两条独立的源
+- **input 每个字符都立刻 findAll**：长文档 + 短关键字时一次匹配几百个，每帧都跑一遍 → 卡。修法：input 加 120ms debounce。Enter 按下时记得 flush 一次，否则极速打字 + 立刻 Enter 会跳到旧关键字的位置。
+- **renderMinimap 循环里 read→write 交替**：每个匹配先 `getBoundingClientRect()` (read,触发 reflow)，再 `style.top = ...; appendChild()` (write,让下次 read 又要重算)——经典 layout thrashing。修法：**两阶段**——先把所有匹配的 ratio 算完存数组，再用 `DocumentFragment` 批量 append 一次。
+- **教训**：性能问题先 profile,但 read/write 交替的模式肉眼可见，看到就先拆。
+
+### 8.4 文件级日志机制再次救命 (§5.1 复用)
+- 这次解决"代码块输入丢字"靠 dlog 在 `input(content)` 回调里 diff 上下次 content。无 dlog 的话只能猜或者让用户复制 F12 截图，效率天差地别
+- 默认沉默(handler.emit 注释起来)，需要时一行注释打开，用完再关。机制成本低、价值大，以后类似"vditor 给我们的数据是不是已经坏了"类问题首选
 
 ---
 
@@ -210,6 +257,8 @@ function getVisibleMode() {
 - 代码块编辑浮窗亮蓝色压不下来 (`project_pending_codeblock_popup.md`)
 - IR 模式 link 中间点击不展开 (`project_link_middle_click_limit.md`)
 - 颜色色块预览撤回 (`project_pending_color_swatch.md`)
+- 工具栏"更多"菜单优化 (`project_pending_more_menu.md`，方向待细化)
+- 代码块/数学块行内编辑回归 (当前用 modal 妥协，见 §1.7)
 - 滚动条修复
 - 无语言代码块双层底色 (撤回了)
 
@@ -220,4 +269,5 @@ function getVisibleMode() {
 
 ---
 
-**写于 Phase 3.2 完成收尾时**。改动具体可看 git log，核心 commit:1ddadad(Phase 1)、b05db77(Phase 2)、2c6b334(Phase 3.1 撤回)。
+**初版写于 Phase 3.2 完成收尾时，Phase 4 收尾 (2026-06-22) 增补 §1.6 / §1.7 / §8、改写 §7.7、§1.1 注记。**
+改动可看 git log，核心 commit:1ddadad(Phase 1)、b05db77(Phase 2)、2c6b334(Phase 3.1 撤回)、f6ec39c(Phase 3.2 自维护 undo)、e76f7d1(Phase 4.3 popover)。

@@ -12,6 +12,7 @@ let isOpen = false;
 let matches = [];   // [{ node, start, end }, ...]
 let currentIdx = -1;
 let lastQuery = '';
+let inputDebounceTimer = 0;
 
 function supportsHighlightAPI() {
   return typeof window.Highlight !== 'undefined' && window.CSS && CSS.highlights;
@@ -75,20 +76,35 @@ export function initSearch() {
     }
   });
 
-  // 输入变化:重算 + 跳第一个
+  // 输入变化:防抖 120ms (避免边打字边全量搜的卡顿),重算 + 跳第一个
   input.addEventListener('input', () => {
-    const q = input.value;
-    if (q === lastQuery) return;
-    lastQuery = q;
-    findAll(q);
-    currentIdx = matches.length > 0 ? 0 : -1;
-    showCurrent();
+    clearTimeout(inputDebounceTimer);
+    inputDebounceTimer = setTimeout(() => {
+      const q = input.value;
+      if (q === lastQuery) return;
+      lastQuery = q;
+      findAll(q);
+      currentIdx = matches.length > 0 ? 0 : -1;
+      showCurrent();
+    }, 120);
   });
 
   // 搜索框内快捷键
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { closeBar(); e.preventDefault(); }
     else if (e.key === 'Enter') {
+      // Enter 前先 flush 防抖,避免还没搜到就跳
+      if (inputDebounceTimer) {
+        clearTimeout(inputDebounceTimer);
+        inputDebounceTimer = 0;
+        const q = input.value;
+        if (q !== lastQuery) {
+          lastQuery = q;
+          findAll(q);
+          currentIdx = matches.length > 0 ? 0 : -1;
+          showCurrent();
+        }
+      }
       gotoMatch(e.shiftKey ? -1 : 1);
       e.preventDefault();
     }
@@ -276,7 +292,10 @@ function renderMinimap() {
   minimap.style.width = '12px';
   minimap.style.height = editorRect.height + 'px';
 
-  minimap.innerHTML = '';
+  // 两阶段避免 layout thrashing:
+  //   第一阶段只读 (批量 getBoundingClientRect, 浏览器可合并 reflow)
+  //   第二阶段只写 (建 DocumentFragment, 末尾一次 append)
+  const ratios = new Array(matches.length);
   for (let i = 0; i < matches.length; i++) {
     const m = matches[i];
     try {
@@ -285,13 +304,21 @@ function renderMinimap() {
       r.setEnd(m.node, m.end);
       const rect = r.getBoundingClientRect();
       const matchYInContent = rect.top - editorRect.top + editor.scrollTop;
-      const ratio = Math.max(0, Math.min(1, matchYInContent / scrollH));
-      const mark = document.createElement('div');
-      mark.className = 'hkk-search__mark' + (i === currentIdx ? ' hkk-search__mark--current' : '');
-      mark.style.top = (ratio * 100) + '%';
-      minimap.appendChild(mark);
-    } catch {}
+      ratios[i] = Math.max(0, Math.min(1, matchYInContent / scrollH));
+    } catch {
+      ratios[i] = -1;
+    }
   }
+  minimap.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < ratios.length; i++) {
+    if (ratios[i] < 0) continue;
+    const mark = document.createElement('div');
+    mark.className = 'hkk-search__mark' + (i === currentIdx ? ' hkk-search__mark--current' : '');
+    mark.style.top = (ratios[i] * 100) + '%';
+    frag.appendChild(mark);
+  }
+  minimap.appendChild(frag);
 }
 
 function gotoMatch(delta) {

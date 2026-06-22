@@ -30,21 +30,6 @@
     border: none !important;
 }
 
-/* ---------- 颜色色块预览 (JS 在 #hex 前插的内联圆点) ---------- */
-.vmd-color-swatch {
-    display: inline-block;
-    width: 11px;
-    height: 11px;
-    margin-left: 2px;
-    margin-right: 4px;
-    vertical-align: middle;
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    border-radius: 50%;
-    pointer-events: none;
-    box-sizing: border-box;
-    user-select: none;
-}
-
 /* ---------- IR 模式链接 - 未展开时:hover 提示 + 指针光标 ---------- */
 #vditor .vditor-ir .vditor-ir__node:not(.vditor-ir__node--expand) .vditor-ir__link,
 #vditor .vditor-ir .vditor-ir__node:not(.vditor-ir__node--expand) a[href] {
@@ -310,11 +295,11 @@ body .vditor-toolbar__divider {
     align-items: center;
     gap: 4px;
     padding: 4px 8px;
-    background: #1e1e1e;
+    background: #3c3c3c;
     color: #cccccc;
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    border: none;
     border-radius: 5px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.85), 0 0 3px rgba(0, 0, 0, 0.7);
     font-size: 12px;
     line-height: 1.4;
     user-select: none;
@@ -395,6 +380,133 @@ body .vditor-toolbar__divider {
     line-height: 1;
     font-weight: 600;
     padding: 0 0 4px 0;
+}
+
+/* 自定义代码块复制按钮 (替换 vditor 原生 .vditor-copy) */
+.vditor-copy { display: none !important; }
+.hkk-code-copy {
+    position: fixed;
+    z-index: 1300;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(60, 60, 60, 0.85);
+    color: #cccccc;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0.85;
+    transition: opacity .15s, background-color .15s;
+}
+.hkk-code-copy:hover {
+    opacity: 1;
+    background: rgba(80, 80, 80, 0.95);
+}
+.hkk-code-copy svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+    pointer-events: none;
+}
+.hkk-code-copy--hidden { display: none !important; }
+
+/* 代码块 / 数学块的 modal 编辑器 (绕开 vditor IR 行内编辑丢字 bug) */
+.hkk-block-modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.hkk-block-modal--hidden { display: none !important; }
+.hkk-block-modal__panel {
+    background: #1e1e1e;
+    color: #cccccc;
+    border-radius: 6px;
+    box-shadow: 0 0 32px rgba(0, 0, 0, 0.9);
+    width: 760px;
+    max-width: 92vw;
+    max-height: 82vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.hkk-block-modal__header {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    flex: 0 0 auto;
+}
+.hkk-block-modal__title {
+    font-weight: 600;
+    font-size: 13px;
+}
+.hkk-block-modal__lang {
+    background: #2d2d2d;
+    color: #cccccc;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    width: 220px;
+    outline: none;
+}
+.hkk-block-modal__lang:focus {
+    border-color: var(--vscode-focusBorder, #007fd4);
+}
+.hkk-block-modal__textarea {
+    flex: 1 1 auto;
+    min-height: 280px;
+    background: #1e1e1e;
+    color: #cccccc;
+    border: none;
+    padding: 12px 14px;
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    resize: none;
+    outline: none;
+    tab-size: 4;
+}
+.hkk-block-modal__footer {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    flex: 0 0 auto;
+}
+.hkk-block-modal__hint {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 11px;
+    flex: 1 1 auto;
+}
+.hkk-block-modal__btn {
+    background: #2d2d2d;
+    color: #cccccc;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 4px;
+    padding: 5px 14px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.hkk-block-modal__btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+.hkk-block-modal__btn--primary {
+    background: #0e639c;
+    border-color: #0e639c;
+    color: #ffffff;
+}
+.hkk-block-modal__btn--primary:hover {
+    background: #1177bb;
 }
 
 /* 修:工具栏 tooltip 在点完按钮后 :focus / :active 状态卡住不消失
