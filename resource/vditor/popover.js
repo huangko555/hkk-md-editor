@@ -136,6 +136,14 @@ export function initPopover() {
     if (editor.contains(e.target) || popover.contains(e.target)) return;
     hide();
   });
+  // 兜底:点击在编辑器和 popover 之外(例如目录、工具栏、空白)→ 隐藏
+  // focusin 只对 focusable 元素 (input/button/contenteditable) 触发,普通 div(目录项) 不触发
+  document.addEventListener('pointerdown', (e) => {
+    const editor = getEditorEl();
+    if (!editor) return;
+    if (editor.contains(e.target) || popover.contains(e.target)) return;
+    hide();
+  }, true);
   // 编辑器滚动时重新定位
   setTimeout(() => {
     const editor = getEditorEl();

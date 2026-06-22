@@ -38,28 +38,103 @@
     border-left-color: rgba(66, 133, 244, 0.6) !important;
 }
 
-/* 行内代码:强制覆盖 base.css 的 --code-bg-color 变量,确保和代码块、表格一致 */
+/* 行内代码:强制覆盖 base.css 的 --code-bg-color 变量,确保和代码块、表格一致。
+ * 注意:用 :not(.vditor-ir__marker--pre *) 之类无法表达"不在代码块内",
+ *      所以下面的代码块清零规则要用更高特异性把块内 <code> 透明掉 */
 #vditor[data-editor-theme="HKK"] .vditor-reset code:not(.hljs):not(.highlight-chroma),
 #vditor[data-editor-theme="HKK"] .vditor-content code:not(.hljs):not(.highlight-chroma) {
     background-color: rgba(66, 133, 244, 0.18) !important;
 }
 
-/* 代码块(fenced)静默渲染态:rgba(0.20) 单层,只覆盖最内层 pre */
-#vditor[data-editor-theme="HKK"] .vditor-reset pre,
-#vditor[data-editor-theme="HKK"] .vditor-reset pre.hljs,
-#vditor[data-editor-theme="HKK"] .vditor-wysiwyg__preview,
-#vditor[data-editor-theme="HKK"] .vditor-ir__preview {
-    background-color: rgba(66, 133, 244, 0.20) !important;
+/* ─────────────────────────────────────────────────────────────
+ * 代码块 / 数学块 底色 (2026-06-22 终稿)
+ *
+ * 思路:wrapper / marker spans / 默认 :before/:after 全部清零 + 隐藏,
+ *      只让 source pre (展开态) 和 preview 显示并染蓝
+ *
+ * DOM (代码块 / 数学块共用):
+ *   .vditor-ir__node[data-type="code-block"|"math-block"]  外层 wrapper
+ *   ├── span (open marker / language info)                 marker 行,隐藏
+ *   ├── pre.vditor-ir__marker--pre  (source 编辑区)         折叠态隐藏,展开蓝底
+ *   ├── .vditor-ir__preview         (preview 渲染区)       蓝底
+ *   └── span (close marker)                                 隐藏
+ * ───────────────────────────────────────────────────────────── */
+
+/* (1) 折叠态 wrapper 自身清空,不留任何空白;展开态 line-height 恢复让 fence ``` 正常显示 */
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node[data-type="code-block"],
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node[data-type="math-block"] {
+    background-color: transparent !important;
+    padding: 0 !important;
 }
-/* 外层 wrapper 强制透明 (避免双层效果) */
-#vditor[data-editor-theme="HKK"] .vditor-ir__node[data-type="code-block"] {
+/* 折叠态: line-height 0,marker spans / text nodes 不撑高 */
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node[data-type="code-block"]:not(.vditor-ir__node--expand),
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node[data-type="math-block"]:not(.vditor-ir__node--expand) {
+    line-height: 0 !important;
+}
+/* 折叠态 :before/:after 干掉(vditor 默认 content:' '占两行) */
+#vditor[data-editor-theme="HKK"] .vditor-ir__node[data-type="code-block"]:not(.vditor-ir__node--expand):before,
+#vditor[data-editor-theme="HKK"] .vditor-ir__node[data-type="code-block"]:not(.vditor-ir__node--expand):after,
+#vditor[data-editor-theme="HKK"] .vditor-ir__node[data-type="math-block"]:not(.vditor-ir__node--expand):before,
+#vditor[data-editor-theme="HKK"] .vditor-ir__node[data-type="math-block"]:not(.vditor-ir__node--expand):after {
+    content: none !important;
+}
+
+/* (2) 折叠态: wrapper 内 marker spans 全部隐藏(避免 wrapper 顶部多出 marker 行)
+ *     展开态: 用 vditor 默认行为 — fence open/close marker 仍隐藏,language-info 显示并可编辑 */
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node[data-type="code-block"]:not(.vditor-ir__node--expand) > span,
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node[data-type="math-block"]:not(.vditor-ir__node--expand) > span {
+    display: none !important;
+}
+
+/* (3) 折叠态隐藏 source pre,展开态显示;同时清掉 vditor 给 pre 的 1em margin */
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node[data-type="code-block"] > pre.vditor-ir__marker--pre,
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node[data-type="math-block"] > pre.vditor-ir__marker--pre {
+    margin: 0 !important;
+    line-height: normal;
+}
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node[data-type="code-block"]:not(.vditor-ir__node--expand) > pre.vditor-ir__marker--pre,
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node[data-type="math-block"]:not(.vditor-ir__node--expand) > pre.vditor-ir__marker--pre {
+    display: none !important;
+}
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node--expand[data-type="code-block"] > pre.vditor-ir__marker--pre,
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node--expand[data-type="math-block"] > pre.vditor-ir__marker--pre {
+    display: block !important;
+}
+
+/* (4) preview 自己 line-height 恢复,清 margin */
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__preview {
+    line-height: normal;
+    margin: 0 !important;
+}
+
+/* (5) 蓝底
+ *   - source pre (代码块/数学块): 任何时候都蓝;折叠态 display:none 不显示也不冲突
+ *   - preview: 只在 "代码块 折叠态" 时蓝;展开态 + 数学块都透明
+ *   - 内部 <code> 一律透明,避免 inline-code 规则误染叠色 */
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node[data-type="code-block"] > pre.vditor-ir__marker--pre,
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node[data-type="math-block"] > pre.vditor-ir__marker--pre,
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node[data-type="code-block"]:not(.vditor-ir__node--expand) > .vditor-ir__preview {
+    background-color: rgba(66, 133, 244, 0.20) !important;
+    border-radius: 4px;
+}
+/* code 一律透明 (压过 inline-code 0.18 蓝误染) */
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node[data-type="code-block"] > .vditor-ir__preview code:not(.hljs):not(.highlight-chroma),
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node[data-type="math-block"] > .vditor-ir__preview code:not(.hljs):not(.highlight-chroma),
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node[data-type="code-block"] > pre.vditor-ir__marker--pre code:not(.hljs):not(.highlight-chroma),
+#vditor[data-editor-theme="HKK"] .vditor-reset .vditor-ir__node[data-type="math-block"] > pre.vditor-ir__marker--pre code:not(.hljs):not(.highlight-chroma) {
     background-color: transparent !important;
 }
-/* inner code 透明,让外层 pre 的 #232D3E 透出来 */
-#vditor[data-editor-theme="HKK"] .vditor-reset pre code,
-#vditor[data-editor-theme="HKK"] .vditor-reset pre code.hljs,
+
+/* (6) wysiwyg / sv 模式 代码块: 整块蓝;inner code 透明 */
+#vditor[data-editor-theme="HKK"] .vditor-wysiwyg .vditor-reset pre,
+#vditor[data-editor-theme="HKK"] .vditor-sv .vditor-reset pre {
+    background-color: rgba(66, 133, 244, 0.20) !important;
+    border-radius: 4px;
+}
+#vditor[data-editor-theme="HKK"] .vditor-wysiwyg__preview,
 #vditor[data-editor-theme="HKK"] .vditor-wysiwyg__preview code,
-#vditor[data-editor-theme="HKK"] .vditor-ir__preview code {
+#vditor[data-editor-theme="HKK"] .vditor-wysiwyg .vditor-reset pre code,
+#vditor[data-editor-theme="HKK"] .vditor-sv .vditor-reset pre code {
     background-color: transparent !important;
 }
 

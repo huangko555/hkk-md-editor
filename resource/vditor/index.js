@@ -18,13 +18,12 @@ function loadConfigs() {
 }
 loadConfigs()
 
-// ────────────── 调试日志辅助 (保留以备需要,默认沉默) ──────────────
-// 取消注释 handler.emit 可启用,extension 会写到 test-samples/hkk-debug.log
+// 调试日志 (需要时取消注释 handler.emit,extension 会写到 test-samples/hkk-debug.log)
 function dlog(...args) {
-  // try {
-  //   const msg = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ');
-  //   handler.emit('debug-log', msg);
-  // } catch {}
+  try {
+    // const msg = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ');
+    // handler.emit('debug-log', msg);
+  } catch {}
 }
 
 // ────────────── 自维护撤销/重做栈 (vditor IR 模式自带 undo 失效) ──────────────
@@ -194,6 +193,8 @@ let doCustomRedo = () => { };
 // Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z
 document.addEventListener('keydown', (e) => {
   if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+  // block editor modal 开着时,undo/redo 不触发,防止 baseMd 快照与 session 不一致
+  if (document.activeElement?.closest?.('.hkk-block-modal:not(.hkk-block-modal--hidden)')) return;
   const isZ = e.key === 'z' || e.key === 'Z';
   const isY = e.key === 'y' || e.key === 'Y';
   if (isZ && !e.shiftKey) {
@@ -286,7 +287,48 @@ handler.on("open", async (md) => {
         try { editor.setValue(content); } catch (e) { dlog('[hkk] setValue threw:', String(e)); }
       };
 
+      // Fix LESSONS §1.7: SpinVditorIRDOM 对 code/math 块有两个 bug:
+      // (1) <wbr> 在 code 内容里会被 Lute 当 HTML 元素处理,导致内容被截断丢字
+      // (2) Lute 从零重建 IR DOM,不保留运行时 --expand,每次 outerHTML 替换后块折叠
+      // 修法: (1) <wbr> 换成哨兵文本绕过 Lute,出来后还原第一个,删掉其余(Lute 会把
+      //           哨兵同时写进 source 和 preview 两区,后者不还原会显示为乱字)
+      //       (2) 只要光标在 code/math 块内(<wbr> 存在),无论 input 是否有 --expand
+      //           都强制往结果里补回来 —— 因为每次 outerHTML 赋值后 --expand 必然丢失
+      if (editor.vditor?.lute) {
+        const _lute = editor.vditor.lute;
+        const _origSpin = _lute.SpinVditorIRDOM.bind(_lute);
+        // vditor 在代码块里同时可能用两种光标标记:
+        //   <wbr>                          → 用 _WBR 哨兵保护
+        //   <span class="vditor-wbr"></span> → 用 _VWBR 哨兵保护
+        // 两者都会被 Lute 当 HTML 元素截断代码内容;必须进 Lute 前都替换掉
+        const _WBR  = '\x02HKKWBR\x02';
+        const _VWBR = 'HKKVWBR';
+        _lute.SpinVditorIRDOM = function(html) {
+          const isCodeOrMath = html.indexOf('data-type="code-block"') >= 0
+            || html.indexOf('data-type="math-block"') >= 0;
+          if (!isCodeOrMath) return _origSpin(html);
+          const hasWbr  = html.indexOf('<wbr>') >= 0;
+          const hasVWbr = html.indexOf('class="vditor-wbr"') >= 0;
+          if (!hasWbr && !hasVWbr) return _origSpin(html);
+          let sentHtml = html;
+          if (hasWbr)  sentHtml = sentHtml.replace(/<wbr>/g, _WBR);
+          if (hasVWbr) sentHtml = sentHtml.replace(/<span\b[^>]*\bclass="vditor-wbr"[^>]*><\/span>/g, _VWBR);
+          const result = _origSpin(sentHtml);
+          // 还原第一个 _WBR → <wbr>(setRangeByWbr 用来落光标)
+          let fixed = result.replace(_WBR, '<wbr>');
+          // 清掉所有剩余哨兵(Lute 会把哨兵写进 source 和 preview 两区)
+          if (fixed.indexOf(_WBR)  >= 0) fixed = fixed.split(_WBR).join('');
+          if (fixed.indexOf(_VWBR) >= 0) fixed = fixed.split(_VWBR).join('');
+          // 光标在块内 → 强制保持展开(每次 outerHTML 替换后 --expand 必然丢失)
+          if (fixed.indexOf('vditor-ir__node--expand') < 0) {
+            fixed = fixed.replace(/(vditor-ir__node)(?=["\s])/, '$1 vditor-ir__node--expand');
+          }
+          return fixed;
+        };
+      }
+
       // 给 block-editor.js 用:把一段修改后的 markdown 应用到编辑器,走我们自己的撤销栈
+      window.__hkkGetContent = () => currentSavedContent;
       window.__hkkEditor = editor;
       window.__hkkApplyMarkdown = (newMd) => {
         if (newMd === currentSavedContent) return;

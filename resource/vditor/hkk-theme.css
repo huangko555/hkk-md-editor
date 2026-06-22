@@ -533,7 +533,7 @@ body .vditor-toolbar__divider {
 }
 .hkk-toc {
     position: fixed;
-    z-index: 999;
+    z-index: 1500;   /* 高于 popover(1400),目录始终在浮窗之上 */
     box-sizing: border-box;
     background: var(--vscode-editor-background, #1e1e1e);
     color: var(--vscode-editor-foreground, #cccccc);

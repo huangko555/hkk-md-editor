@@ -68,13 +68,28 @@ function getVisibleMode() {
   - `click` 用 `navigator.clipboard.writeText` 现代 API 写剪贴板，fallback 用 textarea + `document.execCommand('copy')` 兜底
 - **教训**：VSCode webview 的 `execCommand('copy'/'cut'/'paste')` 几乎都被拒，有这类需求一律走 Clipboard API。**inline onclick 也跟"先 mousedown 抢光标"竞争**，要拦截操作类按钮，得在 mousedown 就 preventDefault。
 
-### 1.7 IR 模式代码块/数学块行内输入丢字 (vditor 序列化 bug，实锤)
-- **现象**：在代码块或 `$$ ... $$` 数学块里打字、删字，内容会被吞——有时尾巴丢几个字，有时整行甚至跨行消失
-- **早期误判**：LESSONS §7.7 旧版写"git stash 退回接手前对照，照样丢"。**这判断是错的**——接手前用的是 wysiwyg 模式，stash 同时把 `mode: 'ir'` 也回滚了，等于在对比两个完全不同的内核路径
-- **实锤过程**：开 dlog 在 `input(content)` 回调里 diff 上一次和这一次的 content，发现 vditor 给我们的 markdown **已经丢字** (例：用户在代码块里改数字，序列化结果把同段测试注释 `// ← 在这行改` 整段吞掉)。全程没有 `[update]` 日志 → 不是回环，纯是 vditor IR DOM→markdown 序列化的内部 bug
-- **office viewer 没事**：它用 `mode: 'wysiwyg'`，这个序列化 bug 是 IR 路径独有
-- **应对** (Phase 4 妥协，B2 半解决)：**popover 上加"编辑"按钮 → 弹独立 modal**。modal 里用 `<textarea>` 编辑，完成后定位"DOM 里第 N 个代码块/数学块"对应 markdown 里"第 N 个 ``` / $$"块，整段字符替换 → `safeSetValue`。绕开 vditor IR 的行内编辑路径，代价是失去"行内直接输入"的 wysiwyg 体验
-- **彻底修法 (未做)**：要么换默认 mode 到 wysiwyg (失去 IR 特性)，要么升级 vditor bundle 试新版，要么逐项替换内核。都不便宜
+### 1.7 IR 模式代码块/数学块行内输入丢字 (已修复,2026-06-23)
+- **现象**：在代码块或 `$$ ... $$` 数学块里打字、删字,内容会被吞——有时尾巴丢几个字,有时整行甚至跨行消失;同时光标会跳到代码块顶部的语言行
+- **早期误判**：旧版写"git stash 退回接手前对照,照样丢"。**这判断是错的**——接手前用的是 wysiwyg 模式,stash 同时把 `mode: 'ir'` 也回滚了,等于在对比两个完全不同的内核路径
+- **实锤过程**：开 dlog 在 `SpinVditorIRDOM(html)` 入出参里打日志,确认 Lute 把光标占位符当成 HTML 元素截断了代码内容
+- **根因 (两个独立 bug,叠加才能 100% 复现)**：
+  1. vditor IR 模式里光标占位符有 **两种** 形式 —— `<wbr>` 和 `<span class="vditor-wbr"></span>`,后者在行尾/节点边界时出现。两者**都**会被 Lute 当 HTML 元素处理,代码内容被截断
+  2. 每次按键后 vditor 调用 `SpinVditorIRDOM(blockElement.outerHTML)` 重新渲染当前块,这一步会丢失运行时的 `vditor-ir__node--expand` CSS class → 块立即折叠,source 编辑区消失只剩 preview
+- **修法** (`resource/vditor/index.js` 的 `after()` 回调里 monkey-patch `lute.SpinVditorIRDOM`)：
+  - 进 Lute 前把 `<wbr>` 替换为文本哨兵 `\x02HKKWBR\x02` (`_WBR`),把 `<span class="vditor-wbr"></span>` 替换为 `HKKVWBR` (`_VWBR`)
+  - 出来后还原**第一个** `_WBR` → `<wbr>` (vditor `setRangeByWbr` 据此定位光标),其余哨兵 (Lute 会把哨兵同时写进 source 和 preview 两区) 用 `split().join('')` 全删 —— 不删的话 preview 里显示成乱字
+  - 只要光标在 code/math 块内 (有 `<wbr>` 或 `<span class="vditor-wbr">`),不论 input 是否带 `--expand`,都在返回结果里强制注入 `vditor-ir__node--expand`。**不能靠 `wasExpanded` 判断**——第一次 `outerHTML` 替换后 `--expand` 必然丢失,此后输入永远是 false
+- **教训**：minified 第三方库的 bug,从入参/出参打日志看 transform 是最快的定位方式;同时不要忘了 vditor 里光标占位符可能有多种形式 (`<wbr>` 不是唯一的)
+- **保留的妥协**：popover 上的"编辑"按钮 + modal 仍然在 —— 复杂代码 (含特殊字符、巨长) 走 modal 更稳
+
+### 1.8 vditor IR 代码块底色:wrapper 内多余子元素 + preview 不在 wrapper 后代的陷阱
+- **现象**：用 `.vditor-ir__node[data-type="code-block"] .vditor-ir__preview` 后代选择器给 preview 加底色,**不生效**;同时折叠态代码块顶部有一行不该有的空白
+- **诊断方法**：给 wrapper 加 `outline: red`、各类子元素加不同颜色 outline,直接在浏览器里看 selector 命中情况(比靠 specificity 算更直观)
+- **根因**：
+  1. `.vditor-ir__preview` 是 wrapper 的**直接后代但加了 outline 后看着像兄弟** —— 实际是后代,但 outline 不能反映这种父子布局
+  2. 折叠态空行来自两处:wrapper 默认 `:before/:after { content: ' ' }` + wrapper 内 marker spans (open/close marker / language info span) + text node 在 `line-height` 撑出的行高 + source `<pre>` 自身 `inline-block` 在折叠态 `height:0` 但 `line-height` 仍占位
+- **修法** (`resource/vditor/css/theme/HKK.css`)：折叠态用 `line-height: 0`、所有 `:before/:after` 加 `content: none`、wrapper 内 `> span` 折叠态全部 `display: none`、source `<pre>` 折叠态 `display: none`;只给 source `<pre>` 和折叠态 preview 加蓝底,展开态 preview 透明
+- **教训**:CSS 出问题先用 outline 画清 DOM,别靠头脑模拟 box model;`content: none` 比 `display: none` 安全,后者会破坏 vditor 内部计算光标位置
 
 ---
 
@@ -258,9 +273,9 @@ function getVisibleMode() {
 - IR 模式 link 中间点击不展开 (`project_link_middle_click_limit.md`)
 - 颜色色块预览撤回 (`project_pending_color_swatch.md`)
 - 工具栏"更多"菜单优化 (`project_pending_more_menu.md`，方向待细化)
-- 代码块/数学块行内编辑回归 (当前用 modal 妥协，见 §1.7)
+- ~~代码块/数学块行内编辑回归 (当前用 modal 妥协)~~ — **已修复,见 §1.7**
 - 滚动条修复
-- 无语言代码块双层底色 (撤回了)
+- ~~无语言代码块双层底色~~ — **已修复,见 §1.8** (inline-code 规则误染 + wrapper 内多余子元素)
 
 ## 用户偏好 (也已存)
 
@@ -269,5 +284,5 @@ function getVisibleMode() {
 
 ---
 
-**初版写于 Phase 3.2 完成收尾时，Phase 4 收尾 (2026-06-22) 增补 §1.6 / §1.7 / §8、改写 §7.7、§1.1 注记。**
+**初版写于 Phase 3.2 完成收尾时，Phase 4 收尾 (2026-06-22) 增补 §1.6 / §1.7 / §8、改写 §7.7、§1.1 注记；0.0.3 收尾 (2026-06-23) 修复 §1.7 + 新增 §1.8。**
 改动可看 git log，核心 commit:1ddadad(Phase 1)、b05db77(Phase 2)、2c6b334(Phase 3.1 撤回)、f6ec39c(Phase 3.2 自维护 undo)、e76f7d1(Phase 4.3 popover)。

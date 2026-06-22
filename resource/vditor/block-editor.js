@@ -107,7 +107,8 @@ export function openBlockEditor(type, target) {
   if (!editor) return;
   const root = getEditorEl();
   if (!root) return;
-  const md = editor.getValue();
+  // 优先用我们自己追踪的 currentSavedContent,避免 vditor IR 序列化 bug 污染 base
+  const md = (window.__hkkGetContent ? window.__hkkGetContent() : editor.getValue());
 
   if (type === 'code') {
     const all = Array.from(root.querySelectorAll('.vditor-ir__node[data-type="code-block"]'));
@@ -121,6 +122,7 @@ export function openBlockEditor(type, target) {
     textarea.value = found.code;
     currentSession = {
       type: 'code',
+      baseMd: md,
       start: found.start, end: found.end,
       indent: found.indent, fence: found.fence,
     };
@@ -136,6 +138,7 @@ export function openBlockEditor(type, target) {
     textarea.value = found.content;
     currentSession = {
       type: 'math',
+      baseMd: md,
       start: found.start, end: found.end,
     };
   } else {
@@ -155,7 +158,8 @@ function commit() {
   const editor = window.__hkkEditor;
   const apply = window.__hkkApplyMarkdown;
   if (!editor || !apply) { close(); return; }
-  const md = editor.getValue();
+  // 用 modal 打开时记下的快照,不再经过 vditor getValue (IR 序列化有 bug)
+  const md = currentSession.baseMd;
   const newCode = textarea.value.replace(/\r\n/g, '\n').replace(/\n+$/, '');
   let newBlock;
   if (currentSession.type === 'code') {
