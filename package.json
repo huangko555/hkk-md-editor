@@ -2,7 +2,7 @@
 	"name": "hkk-md-editor",
 	"displayName": "HKK MD Editor",
 	"description": "HKK 的所见即所得 Markdown 编辑器(基于 Office Viewer 的 markdown 模块)。",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"publisher": "hkq",
 	"engines": {
 		"vscode": "^1.64.0"

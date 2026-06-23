@@ -69,8 +69,13 @@ function installCodeCopyButton() {
     if (block) {
       clearTimeout(codeCopyHideTimer);
       codeCopyTarget = block;
-      positionCodeCopyBtn(block);
-      codeCopyBtn.classList.remove('hkk-code-copy--hidden');
+      // 展开态:不显示浮动复制按钮
+      if (block.classList.contains('vditor-ir__node--expand')) {
+        codeCopyBtn.classList.add('hkk-code-copy--hidden');
+      } else {
+        positionCodeCopyBtn(block);
+        codeCopyBtn.classList.remove('hkk-code-copy--hidden');
+      }
     } else {
       clearTimeout(codeCopyHideTimer);
       codeCopyHideTimer = setTimeout(() => {
@@ -82,14 +87,23 @@ function installCodeCopyButton() {
 }
 
 function positionCodeCopyBtn(block) {
-  const rect = block.getBoundingClientRect();
-  // 代码块滚出视口 → 隐藏
+  // 展开态不显示浮动复制按钮
+  if (block.classList.contains('vditor-ir__node--expand')) {
+    codeCopyBtn.classList.add('hkk-code-copy--hidden');
+    return;
+  }
+  // 严格绑定到蓝色预览背景:按钮距其上边 / 右边固定 8px
+  const preview = block.querySelector('.vditor-ir__preview') || block;
+  const rect = preview.getBoundingClientRect();
+  // 预览区滚出视口 → 隐藏
   if (rect.bottom < 0 || rect.top > window.innerHeight) {
     codeCopyBtn.classList.add('hkk-code-copy--hidden');
     return;
   }
-  codeCopyBtn.style.top = (rect.top + 30) + 'px';
-  codeCopyBtn.style.left = (rect.right - 36) + 'px';
+  const margin = 8;
+  const btnW = 28; // 与 CSS .hkk-code-copy 宽度一致
+  codeCopyBtn.style.top = (rect.top + margin) + 'px';
+  codeCopyBtn.style.left = (rect.right - btnW - margin) + 'px';
 }
 
 function fallbackCopy(text) {
@@ -620,19 +634,18 @@ function positionTable(cell) {
       top = cellRect.bottom + 4;
     }
   } else {
-    // 折叠态:行的左外侧,不遮挡表格
+    // 折叠态:始终在行的左外侧,不遮挡第一列(左侧空间不足也不翻到右边)
     top = rowRect.top + (rowRect.height - pRect.height) / 2;
     left = rowRect.left - pRect.width - 4;
-    if (left < 8) {
-      // 左边不够 → 放在行内最左边(此时会轻微遮挡第一个单元格)
-      left = rowRect.left + 4;
-    }
   }
-  // 边界 clamp (横纵)
+  // 边界 clamp:纵向始终生效
   if (top < 8) top = 8;
   if (top + pRect.height > window.innerHeight - 8) top = window.innerHeight - pRect.height - 8;
-  if (left < 4) left = 4;
-  if (left + pRect.width > window.innerWidth - 8) left = window.innerWidth - pRect.width - 8;
+  // 横向 clamp 只对展开态生效;折叠态宁可超出视口左缘也保持在第一列左外侧,绝不翻到右边遮挡首列
+  if (tableExpanded) {
+    if (left < 4) left = 4;
+    if (left + pRect.width > window.innerWidth - 8) left = window.innerWidth - pRect.width - 8;
+  }
   popover.style.top = top + 'px';
   popover.style.left = left + 'px';
 }

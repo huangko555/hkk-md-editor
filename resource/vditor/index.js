@@ -209,6 +209,9 @@ document.addEventListener('keydown', (e) => {
 }, true);
 
 handler.on("open", async (md) => {
+  // 归一换行符:Windows 文件常是 CRLF,代码块折叠预览会把 \r 也当一次换行 → 每行后多一条空行。
+  // 统一成 \n;保存时 provider 的 applyEdit 会按文档原有 EOL 重新规范化,不改动磁盘文件的换行风格。
+  md.content = (md.content ?? '').replace(/\r\n?/g, '\n');
   currentSavedContent = md.content;
 
   const { config, language } = md;
@@ -265,6 +268,7 @@ handler.on("open", async (md) => {
     after() {
       // 外部 update (zhfix / 文件 watcher):用新内容覆盖,撤销栈清空
       handler.on("update", content => {
+        content = (content ?? '').replace(/\r\n?/g, '\n');
         editor.setValue(content);
         currentSavedContent = content;
         undoStack.length = 0;
