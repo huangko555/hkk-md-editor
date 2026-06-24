@@ -30,6 +30,51 @@
     border: none !important;
 }
 
+/* ---------- 代码块预览始终完整展开,不出现竖向滚动条 ----------
+ * 去掉预览区 / pre / code 的高度限制,内容(含异常空行)自然撑开;
+ * 纵向不再滚动,横向长行仍可横向滚动。 */
+.vditor-reset .vditor-ir__node[data-type="code-block"] .vditor-ir__preview,
+.vditor-reset .vditor-ir__node[data-type="code-block"] .vditor-ir__preview pre,
+.vditor-reset .vditor-ir__node[data-type="code-block"] .vditor-ir__preview code {
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+}
+
+/* ---------- 代码块字体:统一为 VS Code 编辑器字体(随设置走,如更纱黑体) ----------
+ * 覆盖预览区 + 编辑区(source pre)+ wysiwyg/sv 的正文、所有 hljs 子元素、行号;
+ * 正文与行号用完全相同的字号 / 行距(固定 px)/ 字重,保证逐行严格对齐、不累积错位、不加粗。 */
+#vditor .vditor-ir__node[data-type="code-block"] pre,
+#vditor .vditor-ir__node[data-type="code-block"] pre *,
+#vditor .vditor-ir__node[data-type="code-block"] code,
+#vditor .vditor-ir__node[data-type="code-block"] code *,
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-linenumber__rows,
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-linenumber__rows > span,
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-linenumber__rows > span::before,
+#vditor .vditor-wysiwyg .vditor-reset pre,
+#vditor .vditor-wysiwyg .vditor-reset pre *,
+#vditor .vditor-sv .vditor-reset pre,
+#vditor .vditor-sv .vditor-reset pre * {
+    font-family: var(--vscode-editor-font-family, var(--vscode-font-family, ui-monospace, Consolas, monospace)) !important;
+    font-size: 13px !important;
+    line-height: 18px !important;
+    font-weight: normal !important;
+}
+
+/* ---------- 行内代码字体也用 VS Code 编辑器字体 ---------- */
+#vditor .vditor-reset code:not(.hljs):not(.highlight-chroma),
+#vditor .vditor-content code:not(.hljs):not(.highlight-chroma) {
+    font-family: var(--vscode-editor-font-family, var(--vscode-font-family, ui-monospace, Consolas, monospace)) !important;
+}
+
+/* ---------- 代码块注释调亮(覆盖加载的 hljs 主题 monokai 的暗注释 #75715e) ---------- */
+#vditor .vditor-reset .hljs-comment,
+#vditor .vditor-reset .hljs-quote,
+#vditor .vditor-content .hljs-comment,
+#vditor .vditor-content .hljs-quote {
+    color: #9aa0a6 !important;
+}
+
 /* ---------- IR 模式链接 - 未展开时:hover 提示 + 指针光标 ---------- */
 #vditor .vditor-ir .vditor-ir__node:not(.vditor-ir__node--expand) .vditor-ir__link,
 #vditor .vditor-ir .vditor-ir__node:not(.vditor-ir__node--expand) a[href] {

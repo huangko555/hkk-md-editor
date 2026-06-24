@@ -151,58 +151,66 @@
 }
 
 /* ============================================================
- * 代码块语法高亮:Monokai 配色 (HKK 主题专属)
- * .hljs 底色强制透明,让外层 pre 的蓝色面板色 #232D3E 透出来
- * 配色规则取自 resource/vditor/dist/js/highlight.js/styles/monokai.css
+ * 代码块语法高亮:vim 配色 (锁定,不随设置更改)
+ * .hljs 底色强制透明,让外层 pre 的蓝色面板色透出来
+ * 配色取自 resource/vditor/dist/js/highlight.js/styles/vim.css 的 hljs 部分;
+ * 注释保持灰色(用户偏好),其余按 vim;不加粗。
  * ============================================================ */
 #vditor[data-editor-theme="HKK"] .hljs {
     background: transparent !important;
-    color: #f8f8f2 !important;
+    color: #aaaaaa !important;
 }
+#vditor[data-editor-theme="HKK"] .hljs-subst,
 #vditor[data-editor-theme="HKK"] .hljs-tag,
+#vditor[data-editor-theme="HKK"] .hljs-title {
+    color: #aaaaaa !important;
+}
+#vditor[data-editor-theme="HKK"] .hljs-strong,
+#vditor[data-editor-theme="HKK"] .hljs-emphasis {
+    color: #a8a8a2 !important;
+}
+#vditor[data-editor-theme="HKK"] .hljs-bullet,
+#vditor[data-editor-theme="HKK"] .hljs-number,
+#vditor[data-editor-theme="HKK"] .hljs-regexp,
+#vditor[data-editor-theme="HKK"] .hljs-literal {
+    color: #ff55ff !important;
+}
+#vditor[data-editor-theme="HKK"] .hljs-code,
+#vditor[data-editor-theme="HKK"] .hljs-selector-class {
+    color: #aaaaff !important;
+}
 #vditor[data-editor-theme="HKK"] .hljs-keyword,
 #vditor[data-editor-theme="HKK"] .hljs-selector-tag,
-#vditor[data-editor-theme="HKK"] .hljs-literal,
-#vditor[data-editor-theme="HKK"] .hljs-strong,
-#vditor[data-editor-theme="HKK"] .hljs-name {
-    color: #f92672 !important;
-}
-#vditor[data-editor-theme="HKK"] .hljs-code {
-    color: #66d9ef !important;
-}
-#vditor[data-editor-theme="HKK"] .hljs-class .hljs-title {
-    color: #ffffff !important;
-}
-#vditor[data-editor-theme="HKK"] .hljs-attribute,
+#vditor[data-editor-theme="HKK"] .hljs-function,
+#vditor[data-editor-theme="HKK"] .hljs-section,
 #vditor[data-editor-theme="HKK"] .hljs-symbol,
-#vditor[data-editor-theme="HKK"] .hljs-regexp,
-#vditor[data-editor-theme="HKK"] .hljs-link {
-    color: #bf79db !important;
+#vditor[data-editor-theme="HKK"] .hljs-name {
+    color: #ffff55 !important;
+}
+#vditor[data-editor-theme="HKK"] .hljs-attribute {
+    color: #ff5555 !important;
+}
+#vditor[data-editor-theme="HKK"] .hljs-variable,
+#vditor[data-editor-theme="HKK"] .hljs-params,
+#vditor[data-editor-theme="HKK"] .hljs-class .hljs-title {
+    color: #8888ff !important;
 }
 #vditor[data-editor-theme="HKK"] .hljs-string,
-#vditor[data-editor-theme="HKK"] .hljs-bullet,
-#vditor[data-editor-theme="HKK"] .hljs-subst,
-#vditor[data-editor-theme="HKK"] .hljs-title,
-#vditor[data-editor-theme="HKK"] .hljs-section,
-#vditor[data-editor-theme="HKK"] .hljs-emphasis,
+#vditor[data-editor-theme="HKK"] .hljs-selector-id,
+#vditor[data-editor-theme="HKK"] .hljs-selector-attr,
+#vditor[data-editor-theme="HKK"] .hljs-selector-pseudo,
 #vditor[data-editor-theme="HKK"] .hljs-type,
 #vditor[data-editor-theme="HKK"] .hljs-built_in,
 #vditor[data-editor-theme="HKK"] .hljs-builtin-name,
-#vditor[data-editor-theme="HKK"] .hljs-selector-attr,
-#vditor[data-editor-theme="HKK"] .hljs-selector-pseudo,
-#vditor[data-editor-theme="HKK"] .hljs-addition,
-#vditor[data-editor-theme="HKK"] .hljs-variable,
 #vditor[data-editor-theme="HKK"] .hljs-template-tag,
-#vditor[data-editor-theme="HKK"] .hljs-template-variable {
-    color: #a6e22e !important;
+#vditor[data-editor-theme="HKK"] .hljs-template-variable,
+#vditor[data-editor-theme="HKK"] .hljs-addition,
+#vditor[data-editor-theme="HKK"] .hljs-link {
+    color: #ff55ff !important;
 }
 #vditor[data-editor-theme="HKK"] .hljs-comment,
 #vditor[data-editor-theme="HKK"] .hljs-quote,
 #vditor[data-editor-theme="HKK"] .hljs-deletion,
 #vditor[data-editor-theme="HKK"] .hljs-meta {
-    color: #75715e !important;
-}
-#vditor[data-editor-theme="HKK"] .hljs-doctag,
-#vditor[data-editor-theme="HKK"] .hljs-selector-id {
-    font-weight: bold !important;
+    color: #9aa0a6 !important;
 }

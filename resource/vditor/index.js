@@ -237,7 +237,7 @@ handler.on("open", async (md) => {
     preview: {
       theme: { path: `${md.rootPath}/css/content-theme` },
       markdown: { toc: true, codeBlockPreview: config.previewCode },
-      hljs: { style: config.previewCodeHighlight.style, lineNumber: config.previewCodeHighlight.showLineNumber },
+      hljs: { style: 'vim', lineNumber: config.previewCodeHighlight.showLineNumber },
       extPath: md.rootPath,
       math: { engine: 'KaTeX', "inlineDigit": true }
     },
