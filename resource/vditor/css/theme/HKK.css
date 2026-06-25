@@ -151,63 +151,83 @@
 }
 
 /* ============================================================
- * 代码块语法高亮:vim 配色 (锁定,不随设置更改)
- * .hljs 底色强制透明,让外层 pre 的蓝色面板色透出来
- * 配色取自 resource/vditor/dist/js/highlight.js/styles/vim.css 的 hljs 部分;
- * 注释保持灰色(用户偏好),其余按 vim;不加粗。
+ * 代码块语法高亮：VS Code Dark+ 配色（针对蓝色底板提高亮度/饱和度）
+ * .hljs 底色强制透明，让外层 pre 的蓝色面板色透出来；不加粗。
  * ============================================================ */
 #vditor[data-editor-theme="HKK"] .hljs {
     background: transparent !important;
-    color: #aaaaaa !important;
+    color: #f0f0f0 !important;
 }
-#vditor[data-editor-theme="HKK"] .hljs-subst,
-#vditor[data-editor-theme="HKK"] .hljs-tag,
-#vditor[data-editor-theme="HKK"] .hljs-title {
-    color: #aaaaaa !important;
+/* 控制流关键字：鲜艳品紫（if/else/end/begin/rescue/return/while 等） */
+#vditor[data-editor-theme="HKK"] .hljs-keyword {
+    color: #e060d8 !important;
 }
-#vditor[data-editor-theme="HKK"] .hljs-strong,
-#vditor[data-editor-theme="HKK"] .hljs-emphasis {
-    color: #a8a8a2 !important;
+/* def / class / module 声明关键字：偏青蓝（与背景纯蓝有色相差，更显眼） */
+#vditor[data-editor-theme="HKK"] .hljs-function .hljs-keyword,
+#vditor[data-editor-theme="HKK"] .hljs-class .hljs-keyword {
+    color: #f45151 !important;
 }
-#vditor[data-editor-theme="HKK"] .hljs-bullet,
-#vditor[data-editor-theme="HKK"] .hljs-number,
-#vditor[data-editor-theme="HKK"] .hljs-regexp,
-#vditor[data-editor-theme="HKK"] .hljs-literal {
-    color: #ff55ff !important;
-}
-#vditor[data-editor-theme="HKK"] .hljs-code,
-#vditor[data-editor-theme="HKK"] .hljs-selector-class {
-    color: #aaaaff !important;
-}
-#vditor[data-editor-theme="HKK"] .hljs-keyword,
+/* HTML/XML 标签名 */
 #vditor[data-editor-theme="HKK"] .hljs-selector-tag,
+#vditor[data-editor-theme="HKK"] .hljs-tag,
+#vditor[data-editor-theme="HKK"] .hljs-name {
+    color: #f45151 !important;
+}
+/* 字面量（true/false/null/nil） */
+#vditor[data-editor-theme="HKK"] .hljs-literal {
+    color: #f45151 !important;
+}
+/* 字符串：鲜艳橙 */
+#vditor[data-editor-theme="HKK"] .hljs-string,
+#vditor[data-editor-theme="HKK"] .hljs-template-tag,
+#vditor[data-editor-theme="HKK"] .hljs-template-variable,
+#vditor[data-editor-theme="HKK"] .hljs-code {
+    color: #ff9c6e !important;
+}
+/* 数字：鲜艳浅绿 */
+#vditor[data-editor-theme="HKK"] .hljs-number,
+#vditor[data-editor-theme="HKK"] .hljs-bullet,
+#vditor[data-editor-theme="HKK"] .hljs-addition {
+    color: #90d870 !important;
+}
+/* 正则：鲜艳红 */
+#vditor[data-editor-theme="HKK"] .hljs-regexp {
+    color: #f06868 !important;
+}
+/* 函数名、内置函数：鲜艳黄 */
+#vditor[data-editor-theme="HKK"] .hljs-title,
+#vditor[data-editor-theme="HKK"] .hljs-title.function_,
 #vditor[data-editor-theme="HKK"] .hljs-function,
 #vditor[data-editor-theme="HKK"] .hljs-section,
-#vditor[data-editor-theme="HKK"] .hljs-symbol,
-#vditor[data-editor-theme="HKK"] .hljs-name {
-    color: #ffff55 !important;
+#vditor[data-editor-theme="HKK"] .hljs-built_in,
+#vditor[data-editor-theme="HKK"] .hljs-builtin-name {
+    color: #e0e060 !important;
 }
-#vditor[data-editor-theme="HKK"] .hljs-attribute {
-    color: #ff5555 !important;
+/* 类型、类名：鲜艳青绿 */
+#vditor[data-editor-theme="HKK"] .hljs-type,
+#vditor[data-editor-theme="HKK"] .hljs-class .hljs-title,
+#vditor[data-editor-theme="HKK"] .hljs-title.class_ {
+    color: #48ccac !important;
 }
+/* 变量、参数、属性、符号：亮青蓝（比关键字蓝更偏青，互相区分） */
 #vditor[data-editor-theme="HKK"] .hljs-variable,
 #vditor[data-editor-theme="HKK"] .hljs-params,
-#vditor[data-editor-theme="HKK"] .hljs-class .hljs-title {
-    color: #8888ff !important;
-}
-#vditor[data-editor-theme="HKK"] .hljs-string,
+#vditor[data-editor-theme="HKK"] .hljs-attribute,
+#vditor[data-editor-theme="HKK"] .hljs-symbol,
 #vditor[data-editor-theme="HKK"] .hljs-selector-id,
 #vditor[data-editor-theme="HKK"] .hljs-selector-attr,
 #vditor[data-editor-theme="HKK"] .hljs-selector-pseudo,
-#vditor[data-editor-theme="HKK"] .hljs-type,
-#vditor[data-editor-theme="HKK"] .hljs-built_in,
-#vditor[data-editor-theme="HKK"] .hljs-builtin-name,
-#vditor[data-editor-theme="HKK"] .hljs-template-tag,
-#vditor[data-editor-theme="HKK"] .hljs-template-variable,
-#vditor[data-editor-theme="HKK"] .hljs-addition,
+#vditor[data-editor-theme="HKK"] .hljs-selector-class,
 #vditor[data-editor-theme="HKK"] .hljs-link {
-    color: #ff55ff !important;
+    color: #60c8ff !important;
 }
+/* 默认色 */
+#vditor[data-editor-theme="HKK"] .hljs-subst,
+#vditor[data-editor-theme="HKK"] .hljs-strong,
+#vditor[data-editor-theme="HKK"] .hljs-emphasis {
+    color: #f0f0f0 !important;
+}
+/* 注释：灰色（用户偏好） */
 #vditor[data-editor-theme="HKK"] .hljs-comment,
 #vditor[data-editor-theme="HKK"] .hljs-quote,
 #vditor[data-editor-theme="HKK"] .hljs-deletion,

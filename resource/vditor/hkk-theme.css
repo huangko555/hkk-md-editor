@@ -33,12 +33,19 @@
 /* ---------- 代码块预览始终完整展开,不出现竖向滚动条 ----------
  * 去掉预览区 / pre / code 的高度限制,内容(含异常空行)自然撑开;
  * 纵向不再滚动,横向长行仍可横向滚动。 */
-.vditor-reset .vditor-ir__node[data-type="code-block"] .vditor-ir__preview,
+/* preview 容器：横向超出时出现滚动条；height: auto 竖向不会产生滚动条 */
+.vditor-reset .vditor-ir__node[data-type="code-block"] .vditor-ir__preview {
+    max-height: none !important;
+    height: auto !important;
+    overflow-x: auto !important;
+}
+/* pre/code：overflow visible 保证行号（绝对定位）不被裁剪；white-space: pre 长行不换行 */
 .vditor-reset .vditor-ir__node[data-type="code-block"] .vditor-ir__preview pre,
 .vditor-reset .vditor-ir__node[data-type="code-block"] .vditor-ir__preview code {
     max-height: none !important;
     height: auto !important;
     overflow: visible !important;
+    white-space: pre !important;
 }
 
 /* ---------- 代码块字体:统一为 VS Code 编辑器字体(随设置走,如更纱黑体) ----------
