@@ -520,6 +520,22 @@ function handleTableAction(ctx, action) {
       if (!cellRow) return;
       // 不允许删表头
       if (cellRow.parentElement.tagName === 'THEAD') return;
+      // 删行前先把光标移到相邻行,防止浏览器把光标推到表格外
+      // 触发 input 时光标在表格外会导致 vditor/Lute 在表格上方插入空段落
+      const sibRows = Array.from(cellRow.parentElement.children);
+      const ri = sibRows.indexOf(cellRow);
+      const fallback = sibRows[ri + 1] || sibRows[ri - 1];
+      if (fallback) {
+        const fc = fallback.querySelector('td, th');
+        if (fc) {
+          const r = document.createRange();
+          r.setStart(fc, 0);
+          r.collapse(true);
+          const s = window.getSelection();
+          s.removeAllRanges();
+          s.addRange(r);
+        }
+      }
       cellRow.remove();
       break;
     }
@@ -540,6 +556,18 @@ function handleTableAction(ctx, action) {
       if (cellIdx < 0) return;
       // 最少留一列
       if (rows[0]?.children.length <= 1) return;
+      // 删列前先把光标移到相邻列,防止浏览器把光标推到表格外触发 vditor 插空段落
+      if (cellRow) {
+        const fallbackCell = cellRow.children[cellIdx + 1] || cellRow.children[cellIdx - 1];
+        if (fallbackCell) {
+          const r = document.createRange();
+          r.setStart(fallbackCell, 0);
+          r.collapse(true);
+          const s = window.getSelection();
+          s.removeAllRanges();
+          s.addRange(r);
+        }
+      }
       rows.forEach(r => {
         const c = r.children[cellIdx];
         if (c) c.remove();
@@ -672,6 +700,15 @@ function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; }
 const CODE_FOLD_LINE_H = 18;          // px，与 hkk-theme.css line-height 一致
 const CODE_FOLD_THRESHOLD = CODE_FOLD_LINE_H * 12 + 8; // 12行 + padding 余量
 
+// 判断代码块是否有明确的语言标注(无语言块不走折叠流程)
+// 只信 .vditor-ir__marker--info 的用户输入;fallback 的 pre.class 会被 hljs 自动标注,不可信
+function blockHasLang(block) {
+  const info = block.querySelector('.vditor-ir__marker--info');
+  if (!info) return false;
+  const cleaned = info.textContent.replace(/[\s​ ‌‍﻿]/g, '');
+  return cleaned.length > 0;
+}
+
 let codeFoldScanTimer = 0;
 
 function scheduleFoldScan() {
@@ -679,7 +716,18 @@ function scheduleFoldScan() {
   codeFoldScanTimer = setTimeout(updateAllCodeFolds, 400);
 }
 
+function cleanupStaleFoldBtns() {
+  for (const [block, btn] of foldBtns) {
+    if (!document.contains(block)) {
+      btn._cleanup?.();
+      btn.remove();
+      foldBtns.delete(block);
+    }
+  }
+}
+
 function updateAllCodeFolds() {
+  cleanupStaleFoldBtns(); // 先清掉 vditor 重建 DOM 后遗留的孤立按钮
   document.querySelectorAll(
     '.vditor-ir__node[data-type="code-block"]:not([data-hkk-fold-init]):not(.vditor-ir__node--expand)'
   ).forEach(block => {
@@ -697,14 +745,16 @@ function measurePreviewH(preview) {
   return h;
 }
 
+// 折叠按钮在文档流里（position: relative），随内容自然滚动，不需要 JS 同步位置。
+// 防止 vditor 序列化污染的策略：代码块进入编辑模式（--expand）时摘走按钮，退出后装回。
+const foldBtns = new Map(); // block → button
+
 function makeFoldBtn(block, preview) {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'hkk-code-fold-btn';
   btn.textContent = preview.classList.contains('hkk-code-preview--folded') ? '展开全部' : '收起';
 
-  // HKK.css 折叠态 block 有 line-height:0 !important（特异性 1,3,0），会压制外部 CSS。
-  // 用内联 !important 确保按钮样式不被继承/覆盖。
   const sp = btn.style;
   sp.setProperty('display', 'block', 'important');
   sp.setProperty('position', 'relative', 'important');
@@ -714,7 +764,7 @@ function makeFoldBtn(block, preview) {
   sp.setProperty('background', '#435e84', 'important');
   sp.setProperty('color', '#e8f0fe', 'important');
   sp.setProperty('border', 'none', 'important');
-  sp.setProperty('border-radius', '4px 4px 4px 4px', 'important');
+  sp.setProperty('border-radius', '4px', 'important');
   sp.setProperty('font-size', '12px', 'important');
   sp.setProperty('line-height', '1.5', 'important');
   sp.setProperty('text-align', 'center', 'important');
@@ -722,7 +772,7 @@ function makeFoldBtn(block, preview) {
   sp.setProperty('user-select', 'none', 'important');
   sp.setProperty('letter-spacing', '0.5px', 'important');
   sp.setProperty('margin-top', '1px', 'important');
-  sp.setProperty('width', '100%', 'important'); // 占位，下一帧精确对齐
+  sp.setProperty('width', '100%', 'important');
 
   btn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
   btn.addEventListener('click', e => {
@@ -730,14 +780,10 @@ function makeFoldBtn(block, preview) {
     const nowFolded = preview.classList.toggle('hkk-code-preview--folded');
     btn.textContent = nowFolded ? '展开全部' : '收起';
   });
-  btn.addEventListener('mouseover', () => {
-    btn.style.setProperty('background', '#4f6e99', 'important');
-  });
-  btn.addEventListener('mouseout', () => {
-    btn.style.setProperty('background', '#435e84', 'important');
-  });
+  btn.addEventListener('mouseover', () => { btn.style.setProperty('background', '#4f6e99', 'important'); });
+  btn.addEventListener('mouseout',  () => { btn.style.setProperty('background', '#435e84', 'important'); });
 
-  // 精确对齐到 preview 的左右边界
+  // 宽度对齐到 preview（preview 有左缩进，block 宽度比它大）
   const align = () => {
     const blockRect = block.getBoundingClientRect();
     const previewRect = preview.getBoundingClientRect();
@@ -747,30 +793,31 @@ function makeFoldBtn(block, preview) {
     }
   };
   requestAnimationFrame(align);
-
   const onResize = () => requestAnimationFrame(align);
   window.addEventListener('resize', onResize, { passive: true });
-  btn._cleanupAlign = () => window.removeEventListener('resize', onResize);
+  btn._cleanup = () => window.removeEventListener('resize', onResize);
 
-  return btn;
+  block.appendChild(btn);
+  foldBtns.set(block, btn);
 }
 
 function removeFoldBtn(block) {
-  const btn = block.querySelector('.hkk-code-fold-btn');
+  const btn = foldBtns.get(block);
   if (btn) {
-    btn._cleanupAlign?.();
+    btn._cleanup?.();
     btn.remove();
+    foldBtns.delete(block);
   }
 }
 
-// 首次初始化：默认折叠 + 加按钮
+// 首次初始化：默认折叠 + 加按钮（无语言的代码块不折叠）
 function initCodeFoldForBlock(block, preview) {
-  if (measurePreviewH(preview) <= CODE_FOLD_THRESHOLD) {
+  if (!blockHasLang(block) || measurePreviewH(preview) <= CODE_FOLD_THRESHOLD) {
     block.dataset.hkkFoldInit = '1';
     return;
   }
   preview.classList.add('hkk-code-preview--folded');
-  block.appendChild(makeFoldBtn(block, preview));
+  if (!foldBtns.has(block)) makeFoldBtn(block, preview);
   block.dataset.hkkFoldInit = '1';
 }
 
@@ -780,18 +827,22 @@ function revalidateCodeFold(block) {
   const preview = block.querySelector('.vditor-ir__preview');
   if (!preview) return;
 
-  if (measurePreviewH(preview) <= CODE_FOLD_THRESHOLD) {
-    // 内容减少到 ≤12 行：清除折叠和按钮
+  // 无语言代码块：确保折叠和按钮都清掉
+  if (!blockHasLang(block)) {
     preview.classList.remove('hkk-code-preview--folded');
     removeFoldBtn(block);
     block.dataset.hkkFoldInit = '1';
     return;
   }
 
-  // 内容仍 > 12 行：保持用户的展开/折叠状态，按钮一般还在（vditor 不会清掉 block 末尾的非自有元素）
-  if (!block.querySelector('.hkk-code-fold-btn')) {
-    block.appendChild(makeFoldBtn(block, preview));
+  if (measurePreviewH(preview) <= CODE_FOLD_THRESHOLD) {
+    preview.classList.remove('hkk-code-preview--folded');
+    removeFoldBtn(block);
+    block.dataset.hkkFoldInit = '1';
+    return;
   }
+
+  if (!foldBtns.has(block)) makeFoldBtn(block, preview);
   block.dataset.hkkFoldInit = '1';
 }
 
@@ -801,7 +852,11 @@ function initCodeFold() {
       if (m.type !== 'attributes') return;
       const el = m.target;
       if (!el.matches?.('.vditor-ir__node[data-type="code-block"]')) return;
-      if (el.classList.contains('vditor-ir__node--expand')) return; // 进入编辑，忽略
+      if (el.classList.contains('vditor-ir__node--expand')) {
+        // 进入编辑：摘走按钮，防止 vditor 把它序列化进代码内容
+        removeFoldBtn(el);
+        return;
+      }
       // 退出编辑：给 vditor 150ms 完成 preview 重渲，再重新验证
       setTimeout(() => revalidateCodeFold(el), 150);
     });
