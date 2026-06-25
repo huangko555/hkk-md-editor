@@ -816,3 +816,40 @@ body.hkk-toc-fixed-open .vditor-content {
     background: var(--vscode-sash-hoverBorder, var(--vscode-focusBorder, rgba(0, 122, 204, 0.5)));
     transition-delay: 250ms; /* 移入:停留 250ms 才出现手柄 */
 }
+
+/* ============================================================
+ * 代码块折叠 (超过 12 行截断 + 展开/收起按钮)
+ * ============================================================ */
+
+/* 折叠态：#vditor 提升特异性 (1-4-0)，覆盖上方 max-height:none (0-4-0) */
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview.hkk-code-preview--folded {
+    max-height: 216px !important; /* 18px × 12 行 */
+    overflow: hidden !important;
+}
+
+/* 展开/收起按钮：width/margin-left 由 JS 动态对齐到 preview */
+.hkk-code-fold-btn {
+    display: block;
+    box-sizing: border-box;
+    margin-top: 2px;
+    padding: 5px 0;
+    background: rgba(66, 133, 244, 0.7);
+    color: #e8f0fe;
+    border: none;
+    border-radius: 0 0 4px 4px;
+    font-family: var(--vscode-editor-font-family, var(--vscode-font-family, sans-serif));
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+    letter-spacing: 0.5px;
+}
+.hkk-code-fold-btn:hover {
+    background: rgba(66, 133, 244, 0.9);
+}
+
+/* vditor 编辑态（source 展开）时隐藏按钮 */
+.vditor-ir__node--expand .hkk-code-fold-btn {
+    display: none !important;
+}

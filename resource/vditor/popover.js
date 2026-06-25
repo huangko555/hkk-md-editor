@@ -121,6 +121,7 @@ export function initPopover() {
   if (popover) return;
 
   installCodeCopyButton();
+  initCodeFold();
 
   popover = document.createElement('div');
   popover.id = 'hkk-popover';
@@ -172,7 +173,7 @@ function schedule() {
   if (updateScheduled) return;
   updateScheduled = true;
   // rAF 替代 setTimeout 40ms,响应几乎即时 (~16ms 上限) 同时合并同帧多次事件
-  requestAnimationFrame(() => { updateScheduled = false; update(); });
+  requestAnimationFrame(() => { updateScheduled = false; update(); scheduleFoldScan(); });
 }
 
 function update() {
@@ -665,3 +666,150 @@ function escapeHtml(s) {
 }
 function escapeAttr(s) { return escapeHtml(s); }
 function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+
+// ──── 代码块折叠 (超过 12 行截断 + 展开/收起按钮) ────
+
+const CODE_FOLD_LINE_H = 18;          // px，与 hkk-theme.css line-height 一致
+const CODE_FOLD_THRESHOLD = CODE_FOLD_LINE_H * 12 + 8; // 12行 + padding 余量
+
+let codeFoldScanTimer = 0;
+
+function scheduleFoldScan() {
+  clearTimeout(codeFoldScanTimer);
+  codeFoldScanTimer = setTimeout(updateAllCodeFolds, 400);
+}
+
+function updateAllCodeFolds() {
+  document.querySelectorAll(
+    '.vditor-ir__node[data-type="code-block"]:not([data-hkk-fold-init]):not(.vditor-ir__node--expand)'
+  ).forEach(block => {
+    const preview = block.querySelector('.vditor-ir__preview');
+    if (preview) initCodeFoldForBlock(block, preview);
+  });
+}
+
+// 测量 preview 自然高度（移除 folded class 避免 max-height 干扰）
+function measurePreviewH(preview) {
+  const wasFolded = preview.classList.contains('hkk-code-preview--folded');
+  preview.classList.remove('hkk-code-preview--folded');
+  const h = preview.scrollHeight;
+  if (wasFolded) preview.classList.add('hkk-code-preview--folded');
+  return h;
+}
+
+function makeFoldBtn(block, preview) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'hkk-code-fold-btn';
+  btn.textContent = preview.classList.contains('hkk-code-preview--folded') ? '展开全部' : '收起';
+
+  // HKK.css 折叠态 block 有 line-height:0 !important（特异性 1,3,0），会压制外部 CSS。
+  // 用内联 !important 确保按钮样式不被继承/覆盖。
+  const sp = btn.style;
+  sp.setProperty('display', 'block', 'important');
+  sp.setProperty('position', 'relative', 'important');
+  sp.setProperty('z-index', '10', 'important');
+  sp.setProperty('box-sizing', 'border-box', 'important');
+  sp.setProperty('padding', '1px 0', 'important');
+  sp.setProperty('background', '#435e84', 'important');
+  sp.setProperty('color', '#e8f0fe', 'important');
+  sp.setProperty('border', 'none', 'important');
+  sp.setProperty('border-radius', '4px 4px 4px 4px', 'important');
+  sp.setProperty('font-size', '12px', 'important');
+  sp.setProperty('line-height', '1.5', 'important');
+  sp.setProperty('text-align', 'center', 'important');
+  sp.setProperty('cursor', 'pointer', 'important');
+  sp.setProperty('user-select', 'none', 'important');
+  sp.setProperty('letter-spacing', '0.5px', 'important');
+  sp.setProperty('margin-top', '1px', 'important');
+  sp.setProperty('width', '100%', 'important'); // 占位，下一帧精确对齐
+
+  btn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const nowFolded = preview.classList.toggle('hkk-code-preview--folded');
+    btn.textContent = nowFolded ? '展开全部' : '收起';
+  });
+  btn.addEventListener('mouseover', () => {
+    btn.style.setProperty('background', '#4f6e99', 'important');
+  });
+  btn.addEventListener('mouseout', () => {
+    btn.style.setProperty('background', '#435e84', 'important');
+  });
+
+  // 精确对齐到 preview 的左右边界
+  const align = () => {
+    const blockRect = block.getBoundingClientRect();
+    const previewRect = preview.getBoundingClientRect();
+    if (previewRect.width > 0 && blockRect.width > 0) {
+      sp.setProperty('margin-left', Math.max(0, Math.round(previewRect.left - blockRect.left)) + 'px', 'important');
+      sp.setProperty('width', Math.round(previewRect.width) + 'px', 'important');
+    }
+  };
+  requestAnimationFrame(align);
+
+  const onResize = () => requestAnimationFrame(align);
+  window.addEventListener('resize', onResize, { passive: true });
+  btn._cleanupAlign = () => window.removeEventListener('resize', onResize);
+
+  return btn;
+}
+
+function removeFoldBtn(block) {
+  const btn = block.querySelector('.hkk-code-fold-btn');
+  if (btn) {
+    btn._cleanupAlign?.();
+    btn.remove();
+  }
+}
+
+// 首次初始化：默认折叠 + 加按钮
+function initCodeFoldForBlock(block, preview) {
+  if (measurePreviewH(preview) <= CODE_FOLD_THRESHOLD) {
+    block.dataset.hkkFoldInit = '1';
+    return;
+  }
+  preview.classList.add('hkk-code-preview--folded');
+  block.appendChild(makeFoldBtn(block, preview));
+  block.dataset.hkkFoldInit = '1';
+}
+
+// 退出编辑时重新验证：只处理内容缩减（≤12行）的情况，不改变用户选择的展开/折叠状态
+function revalidateCodeFold(block) {
+  if (!document.contains(block)) return;
+  const preview = block.querySelector('.vditor-ir__preview');
+  if (!preview) return;
+
+  if (measurePreviewH(preview) <= CODE_FOLD_THRESHOLD) {
+    // 内容减少到 ≤12 行：清除折叠和按钮
+    preview.classList.remove('hkk-code-preview--folded');
+    removeFoldBtn(block);
+    block.dataset.hkkFoldInit = '1';
+    return;
+  }
+
+  // 内容仍 > 12 行：保持用户的展开/折叠状态，按钮一般还在（vditor 不会清掉 block 末尾的非自有元素）
+  if (!block.querySelector('.hkk-code-fold-btn')) {
+    block.appendChild(makeFoldBtn(block, preview));
+  }
+  block.dataset.hkkFoldInit = '1';
+}
+
+function initCodeFold() {
+  const classObserver = new MutationObserver(mutations => {
+    mutations.forEach(m => {
+      if (m.type !== 'attributes') return;
+      const el = m.target;
+      if (!el.matches?.('.vditor-ir__node[data-type="code-block"]')) return;
+      if (el.classList.contains('vditor-ir__node--expand')) return; // 进入编辑，忽略
+      // 退出编辑：给 vditor 150ms 完成 preview 重渲，再重新验证
+      setTimeout(() => revalidateCodeFold(el), 150);
+    });
+  });
+
+  setTimeout(() => {
+    const root = document.querySelector('#vditor') || document.body;
+    classObserver.observe(root, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    updateAllCodeFolds();
+  }, 600);
+}
