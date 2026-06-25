@@ -291,8 +291,14 @@ function escapeAttr(s) { return escapeHtml(s); }
 function jumpTo(idx) {
   const node = headings[idx];
   if (!node) return;
-  // 直接跳,不平滑
-  node.scrollIntoView({ block: 'start', behavior: 'instant' });
+  // 直接操作 scrollTop,避免 scrollIntoView 向上冒泡影响 webview 根节点
+  const sc = scrollEl
+    || (getVisibleMode()?.querySelector('.vditor-reset'))
+    || document.querySelector('.vditor-reset');
+  if (!sc) return;
+  const scRect = sc.getBoundingClientRect();
+  const nodeRect = node.getBoundingClientRect();
+  sc.scrollTop += nodeRect.top - scRect.top;
 }
 
 // ───── Scroll spy:高亮当前段标题 ─────
