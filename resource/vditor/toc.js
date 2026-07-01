@@ -9,7 +9,7 @@ let mode = 'floating'; // 'floating' | 'fixed'
 let stateReady = false;
 let buildScheduled = false;
 let observer = null;
-let panelWidth = 260; // 当前面板宽度(浮动/固定共用),拖宽时更新
+let panelWidth = 300; // 当前面板宽度(浮动/固定共用),拖宽时更新
 const MIN_W = 180;
 const MAX_W = 480;
 
