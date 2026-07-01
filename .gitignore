@@ -2,6 +2,7 @@
 node_modules/
 out/
 *.vsix
+.codegraph/
 
 # 编辑器/测试
 .vscode-test/

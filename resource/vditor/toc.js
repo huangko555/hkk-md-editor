@@ -6,6 +6,7 @@ let container = null;
 let body = null;
 let isOpen = false;
 let mode = 'floating'; // 'floating' | 'fixed'
+let stateReady = false;
 let buildScheduled = false;
 let observer = null;
 let panelWidth = 260; // 当前面板宽度(浮动/固定共用),拖宽时更新
@@ -38,12 +39,16 @@ function getEditorEl() {
 }
 
 // ───── 初始化 ─────
-export function initTOC() {
+export function initTOC(initialState) {
   if (container) return;
+
+  const hasInitialState = !!initialState;
+  mode = initialState?.mode === 'fixed' ? 'fixed' : 'floating';
+  isOpen = !!initialState?.open;
 
   container = document.createElement('div');
   container.id = 'hkk-toc';
-  container.className = 'hkk-toc hkk-toc--hidden hkk-toc--floating';
+  container.className = `hkk-toc ${isOpen ? '' : 'hkk-toc--hidden'} hkk-toc--${mode}`;
   container.innerHTML = `
     <div class="hkk-toc__header">
       <span class="hkk-toc__label">目录</span>
@@ -66,6 +71,9 @@ export function initTOC() {
   `;
   document.body.appendChild(container);
   body = container.querySelector('.hkk-toc__body');
+  document.body.classList.toggle('hkk-toc-fixed-open', mode === 'fixed' && isOpen);
+  applyWidth();
+  updateModeButtonTitle();
 
   // 容器内点击:头部按钮 / 折叠按钮 / 标题链接
   container.addEventListener('click', (e) => {
@@ -125,6 +133,11 @@ export function initTOC() {
   // MutationObserver 监听编辑器 DOM 变化,触发重建
   setupObserver();
   scheduleBuild();
+
+  handler.on('tocState', applySavedState);
+  if (isOpen) build();
+  stateReady = hasInitialState;
+  if (!hasInitialState) handler.emit('getTocState');
 }
 
 // 测 vditor 工具栏高度,写到 CSS 变量 --hkk-toolbar-h
@@ -143,10 +156,15 @@ function setMode(next) {
   container.classList.toggle('hkk-toc--fixed', mode === 'fixed');
   document.body.classList.toggle('hkk-toc-fixed-open', mode === 'fixed' && isOpen);
   // 切换钮 title (图标不变,只换 tooltip 文字)
-  const btn = container.querySelector('[data-action="toggle-mode"]');
-  if (btn) btn.title = mode === 'floating' ? '切到固定' : '切到浮动';
+  updateModeButtonTitle();
   // 应用宽度
   applyWidth();
+  saveState();
+}
+
+function updateModeButtonTitle() {
+  const btn = container?.querySelector('[data-action="toggle-mode"]');
+  if (btn) btn.title = mode === 'floating' ? '切到固定' : '切到浮动';
 }
 
 function applyWidth() {
@@ -211,6 +229,20 @@ function setOpen(open) {
     applyWidth();
     build(); // 立即重建,避免被节流吞掉显示旧目录
   }
+  saveState();
+}
+
+function applySavedState(state) {
+  const nextMode = state?.mode === 'fixed' ? 'fixed' : 'floating';
+  const nextOpen = !!state?.open;
+  setMode(nextMode);
+  setOpen(nextOpen);
+  stateReady = true;
+}
+
+function saveState() {
+  if (!stateReady) return;
+  handler.emit('setTocState', { open: isOpen, mode });
 }
 
 // ───── 树构建与渲染 ─────

@@ -436,34 +436,149 @@ body .vditor-toolbar__divider {
 
 /* 自定义代码块复制按钮 (替换 vditor 原生 .vditor-copy) */
 .vditor-copy { display: none !important; }
-.hkk-code-copy {
-    position: fixed;
-    z-index: 1300;
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(60, 60, 60, 0.85);
-    color: #cccccc;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    opacity: 0.85;
-    transition: opacity .15s, background-color .15s;
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview {
+    position: relative !important;
 }
-.hkk-code-copy:hover {
-    opacity: 1;
-    background: rgba(80, 80, 80, 0.95);
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview > .hkk-code-copy {
+    position: absolute !important;
+    top: 8px !important;
+    right: 8px !important;
+    z-index: 10 !important;
+    width: 28px !important;
+    height: 28px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(38, 43, 51, 0.88) !important;
+    color: #d4d7dc !important;
+    border: 1px solid rgba(255, 255, 255, 0.13) !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.34) !important;
+    transform: none !important;
+    transition: opacity .15s, background-color .15s, color .15s, border-color .15s, box-shadow .15s !important;
 }
-.hkk-code-copy svg {
-    width: 14px;
-    height: 14px;
-    fill: currentColor;
-    pointer-events: none;
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview:hover > .hkk-code-copy,
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview > .hkk-code-copy:hover {
+    opacity: 0.88 !important;
+    pointer-events: auto !important;
+}
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview > .hkk-code-copy:hover {
+    opacity: 1 !important;
+    background: rgba(56, 62, 72, 0.96) !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 2px 7px rgba(0, 0, 0, 0.42) !important;
+    transform: none !important;
+}
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview > .hkk-code-copy:active {
+    background: rgba(30, 34, 40, 1) !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.18) !important;
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+    transform: none !important;
+}
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview > .hkk-code-copy:focus-visible {
+    outline: 2px solid rgba(125, 184, 255, 0.9) !important;
+    outline-offset: 2px !important;
+}
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview > .hkk-code-copy svg {
+    width: 14px !important;
+    height: 14px !important;
+    fill: currentColor !important;
+    pointer-events: none !important;
 }
 .hkk-code-copy--hidden { display: none !important; }
+.vditor-ir__node--expand .hkk-code-copy { display: none !important; }
+
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview > .hkk-code-tools {
+    position: absolute !important;
+    top: 8px !important;
+    right: 8px !important;
+    z-index: 10 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    height: 30px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    background: rgba(24, 31, 42, 0.92) !important;
+    color: #b8c2d0 !important;
+    border: none !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: opacity .15s, background-color .15s !important;
+}
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview:hover > .hkk-code-tools,
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview > .hkk-code-tools:hover {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    background: rgba(29, 38, 52, 0.96) !important;
+}
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview > .hkk-code-tools .hkk-code-lang {
+    display: inline-flex !important;
+    align-items: center !important;
+    max-width: 96px !important;
+    height: 100% !important;
+    padding: 0 10px !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+    font-size: 13px !important;
+    line-height: 1 !important;
+    color: #b7c0ce !important;
+    background: transparent !important;
+}
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview > .hkk-code-tools .hkk-code-tools__divider {
+    width: 1px !important;
+    height: 16px !important;
+    background: rgba(190, 205, 224, 0.18) !important;
+    flex: none !important;
+}
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview > .hkk-code-tools > .hkk-code-copy {
+    position: static !important;
+    width: auto !important;
+    min-width: 58px !important;
+    height: 24px !important;
+    margin: 0 3px !important;
+    padding: 0 7px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    background: rgba(16, 22, 31, 0.62) !important;
+    color: #bac4d2 !important;
+    border: none !important;
+    border-radius: 4px !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: none !important;
+    font-size: 13px !important;
+    line-height: 1 !important;
+    cursor: pointer !important;
+}
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview > .hkk-code-tools > .hkk-code-copy:hover {
+    background: rgba(47, 59, 76, 0.96) !important;
+    color: #d7e0ea !important;
+    box-shadow: none !important;
+}
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview > .hkk-code-tools > .hkk-code-copy:active {
+    background: rgba(8, 12, 18, 1) !important;
+    color: #e5edf6 !important;
+    box-shadow: none !important;
+}
+#vditor .vditor-ir__node[data-type="code-block"] .vditor-ir__preview > .hkk-code-tools > .hkk-code-copy svg {
+    width: 14px !important;
+    height: 14px !important;
+    fill: currentColor !important;
+    flex: none !important;
+}
+.vditor-ir__node--expand .hkk-code-tools { display: none !important; }
 
 /* 代码块 / 数学块的 modal 编辑器 (绕开 vditor IR 行内编辑丢字 bug) */
 .hkk-block-modal {

@@ -6,7 +6,25 @@ const { copy } = require("esbuild-plugin-copy");
 const isProd = process.argv.indexOf('--mode=production') >= 0;
 
 // 这些依赖体积大或包含原生模块,不参与 bundle,运行时从 node_modules 加载
-const dependencies = ['vscode-html-to-docx', 'highlight.js', 'pdf-lib', 'cheerio', 'katex', 'mustache', 'puppeteer-core', 'mermaid'];
+const dependencies = [
+    'vscode-html-to-docx', 'highlight.js', 'pdf-lib', 'cheerio', 'katex', 'mustache',
+    'puppeteer-core', 'mermaid', 'chrome-finder', 'markdown-it',
+    'markdown-it-checkbox', 'markdown-it-plantuml', 'markdown-it-toc-done-right',
+    'markdown-it-anchor',
+];
+
+const aliasPlugin = {
+    name: 'alias',
+    setup(b) {
+        b.onResolve({ filter: /^@\// }, (args) => {
+            const basePath = resolve('./src', args.path.slice(2));
+            for (const path of [basePath, `${basePath}.ts`, `${basePath}.js`]) {
+                if (existsSync(path)) return { path };
+            }
+            return { path: basePath };
+        });
+    }
+};
 
 function main() {
     build({
@@ -25,15 +43,16 @@ function main() {
             'suspicious-boolean-not': "silent",
         },
         plugins: [
+            aliasPlugin,
             // 复制 markdown-pdf 导出用的模板
-            copy({
+            ...(isProd ? [copy({
                 resolveFrom: 'out',
                 assets: {
                     from: ['./template/**/*'],
                     to: ['./'],
                     keepStructure: true
                 },
-            }),
+            })] : []),
             {
                 name: 'build notice',
                 setup(b) {
@@ -71,5 +90,5 @@ function createLib() {
     });
 }
 
-createLib();
+if (isProd) createLib();
 main();

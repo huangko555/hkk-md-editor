@@ -28,8 +28,10 @@ function getEditorEl() {
 let codeCopyBtn = null;
 let codeCopyTarget = null;
 let codeCopyHideTimer = 0;
+const copyBtns = new Map(); // block -> button
 
 function installCodeCopyButton() {
+  return; // Copy buttons are mounted per code block by initCodeFold().
   codeCopyBtn = document.createElement('button');
   codeCopyBtn.type = 'button';
   codeCopyBtn.className = 'hkk-code-copy hkk-code-copy--hidden';
@@ -117,10 +119,84 @@ function fallbackCopy(text) {
   document.body.removeChild(ta);
 }
 
+function getCodeLang(block) {
+  const info = block.querySelector('.vditor-ir__marker--info');
+  return (info?.textContent || '').replace(/[\s\u200b\u00a0\u200c\u200d\ufeff]/g, '').trim();
+}
+
+function makeCopyBtn(block, preview) {
+  if (copyBtns.has(block)) return;
+  const toolbar = document.createElement('div');
+  toolbar.className = 'hkk-code-tools';
+
+  const codeLang = getCodeLang(block);
+  if (codeLang) {
+    const lang = document.createElement('span');
+    lang.className = 'hkk-code-lang';
+    lang.textContent = codeLang;
+    toolbar.appendChild(lang);
+
+    const divider = document.createElement('span');
+    divider.className = 'hkk-code-tools__divider';
+    toolbar.appendChild(divider);
+  }
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'hkk-code-copy';
+  btn.setAttribute('aria-label', 'Copy code');
+  btn.title = '复制代码';
+  btn.innerHTML = '<svg><use xlink:href="#vditor-icon-copy"></use></svg><span>复制</span>';
+  btn.title = '复制代码';
+
+  btn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!document.contains(block)) return;
+    const text = extractCodeText(block);
+    if (!text) return;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+    } else {
+      fallbackCopy(text);
+    }
+    btn.title = '已复制';
+    btn.setAttribute('aria-label', 'Copied');
+    setTimeout(() => {
+      if (!document.contains(btn)) return;
+      btn.title = '复制代码';
+      btn.setAttribute('aria-label', 'Copy code');
+    }, 1500);
+  });
+
+  toolbar.appendChild(btn);
+  preview.appendChild(toolbar);
+  copyBtns.set(block, toolbar);
+}
+
+function removeCopyBtn(block) {
+  const btn = copyBtns.get(block);
+  if (!btn) return;
+  btn.remove();
+  copyBtns.delete(block);
+}
+
+function cleanupStaleCopyBtns() {
+  for (const [block, btn] of copyBtns) {
+    if (!document.contains(block) || !document.contains(btn)) {
+      btn.remove();
+      copyBtns.delete(block);
+    }
+  }
+}
+
 export function initPopover() {
   if (popover) return;
 
-  installCodeCopyButton();
   initCodeFold();
 
   popover = document.createElement('div');
@@ -717,6 +793,7 @@ function scheduleFoldScan() {
 }
 
 function cleanupStaleFoldBtns() {
+  cleanupStaleCopyBtns();
   for (const [block, btn] of foldBtns) {
     if (!document.contains(block)) {
       btn._cleanup?.();
@@ -812,6 +889,7 @@ function removeFoldBtn(block) {
 
 // 首次初始化：默认折叠 + 加按钮（无语言的代码块不折叠）
 function initCodeFoldForBlock(block, preview) {
+  makeCopyBtn(block, preview);
   if (!blockHasLang(block) || measurePreviewH(preview) <= CODE_FOLD_THRESHOLD) {
     block.dataset.hkkFoldInit = '1';
     return;
@@ -826,6 +904,7 @@ function revalidateCodeFold(block) {
   if (!document.contains(block)) return;
   const preview = block.querySelector('.vditor-ir__preview');
   if (!preview) return;
+  makeCopyBtn(block, preview);
 
   // 无语言代码块：确保折叠和按钮都清掉
   if (!blockHasLang(block)) {
@@ -855,6 +934,7 @@ function initCodeFold() {
       if (el.classList.contains('vditor-ir__node--expand')) {
         // 进入编辑：摘走按钮，防止 vditor 把它序列化进代码内容
         removeFoldBtn(el);
+        removeCopyBtn(el);
         return;
       }
       // 退出编辑：给 vditor 150ms 完成 preview 重渲，再重新验证

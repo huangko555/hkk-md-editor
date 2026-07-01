@@ -1,5 +1,6 @@
 .vscode/**
 .vscode-test/**
+.codegraph/**
 src/**
 .gitignore
 **/tsconfig.json

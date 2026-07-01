@@ -5,8 +5,9 @@
 	"tasks": [
 		{
             "label": "dev",
-            "type": "npm",
-            "script": "dev",
+            "type": "shell",
+            "command": "npm.cmd",
+            "args": ["run", "dev"],
             "group": "build",
 			"isBackground": true,
 			"problemMatcher": [

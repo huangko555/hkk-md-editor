@@ -276,7 +276,7 @@ handler.on("open", async (md) => {
       })
       openLink()
       onToolbarClick(editor)
-      initTOC()
+      initTOC(md.tocState)
       initSearch()
       initPopover()
       initBlockEditor()

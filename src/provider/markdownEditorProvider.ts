@@ -12,6 +12,14 @@ import { platform } from 'os';
 /**
  * support view and edit office files.
  */
+type TocState = {
+    open: boolean;
+    mode: 'floating' | 'fixed';
+};
+
+const TOC_STATE_KEY = 'hkk-md-editor.tocState';
+const DEFAULT_TOC_STATE: TocState = { open: false, mode: 'floating' };
+
 export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     private extensionPath: string;
@@ -22,6 +30,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         this.extensionPath = context.extensionPath;
         this.countStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
         this.state = context.globalState
+    }
+
+    private normalizeTocState(value: unknown): TocState {
+        const state = value as Partial<TocState> | undefined;
+        return {
+            open: state?.open === true,
+            mode: state?.mode === 'fixed' ? 'fixed' : 'floating',
+        };
     }
 
     private getFolders(): vscode.Uri[] {
@@ -102,7 +118,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
                 title: basename(uri.fsPath),
                 config, scrollTop,
                 language: vscode.env.language,
-                rootPath, content
+                rootPath, content,
+                tocState: this.normalizeTocState(this.state.get(TOC_STATE_KEY, DEFAULT_TOC_STATE))
             })
             this.updateCount(content)
             this.countStatus.show()
@@ -132,6 +149,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             }
         }).on("scroll", ({ scrollTop }) => {
             this.state.update(`scrollTop_${document.uri.fsPath}`, scrollTop)
+        }).on("getTocState", () => {
+            handler.emit("tocState", this.normalizeTocState(this.state.get(TOC_STATE_KEY, DEFAULT_TOC_STATE)))
+        }).on("setTocState", (state) => {
+            this.state.update(TOC_STATE_KEY, this.normalizeTocState(state))
         }).on("img", async (img) => {
             const { relPath, fullPath } = adjustImgPath(uri)
             const imagePath = isAbsolute(fullPath) ? fullPath : `${resolve(uri.fsPath, "..")}/${relPath}`.replace(/\\/g, "/");
